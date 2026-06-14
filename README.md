@@ -92,7 +92,19 @@ lại thành một báo cáo gọn — tỷ lệ tích cực/tiêu cực, top đ
 ============================================================
 ```
 
-> Chế độ so sánh (`iPhone vs Samsung`) sẽ vẽ biểu đồ cột nhóm và chỉ ra sản phẩm có dư luận tích cực nhất.
+Mỗi báo cáo còn kèm biểu đồ trực quan (do chính app sinh ra bằng matplotlib):
+
+<div align="center">
+
+| Tỷ lệ dư luận | Xu hướng theo thời gian |
+|:---:|:---:|
+| <img src="assets/demo_pie.png" width="380"> | <img src="assets/demo_trend.png" width="380"> |
+
+**So sánh nhiều sản phẩm**
+
+<img src="assets/demo_compare.png" width="640">
+
+</div>
 
 ## 🛠️ Tech Stack
 
