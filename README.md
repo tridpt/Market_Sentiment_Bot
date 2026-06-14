@@ -178,6 +178,17 @@ Market_Sentiment_Bot/
 └── .env.example
 ```
 
+## 📚 Tài liệu
+
+Tài liệu kỹ thuật chi tiết nằm trong thư mục [`docs/`](docs/):
+
+| Tài liệu | Nội dung |
+|---|---|
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Kiến trúc hệ thống, luồng dữ liệu, các quyết định thiết kế |
+| [API_REFERENCE.md](docs/API_REFERENCE.md) | Tham chiếu hàm theo từng module, tham số & giá trị trả về |
+| [USAGE.md](docs/USAGE.md) | Hướng dẫn dùng chi tiết cả 3 giao diện + xử lý sự cố |
+| [CONTRIBUTING.md](docs/CONTRIBUTING.md) | Hướng dẫn sửa code, thêm nguồn/biểu đồ, quy trình commit |
+
 ## 🗺️ Hướng phát triển
 
 - [ ] Trích nguồn (đính link bài viết gốc trong báo cáo)
