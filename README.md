@@ -11,7 +11,7 @@ rồi nhờ **Google Gemini** tổng hợp xem cộng đồng đang khen gì, ch
 ![Gemini](https://img.shields.io/badge/AI-Gemini%202.5%20Flash-4285F4?logo=google&logoColor=white)
 ![Telegram](https://img.shields.io/badge/Bot-Telegram-26A5E4?logo=telegram&logoColor=white)
 ![Flask](https://img.shields.io/badge/Web-Flask-000000?logo=flask&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-44%20passing-2ecc71)
+[![Tests](https://github.com/tridpt/Market_Sentiment_Bot/actions/workflows/tests.yml/badge.svg)](https://github.com/tridpt/Market_Sentiment_Bot/actions/workflows/tests.yml)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
 </div>

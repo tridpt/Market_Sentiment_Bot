@@ -7,16 +7,24 @@ from dotenv import load_dotenv
 
 # Tải key từ file .env
 load_dotenv()
-GOOGLE_API_KEY = os.getenv("GEMINI_API_KEY")
-
-if not GOOGLE_API_KEY:
-    raise ValueError("Chưa tìm thấy GEMINI_API_KEY trong file .env. Hãy kiểm tra lại!")
-
-# Khởi tạo Client theo chuẩn SDK genai mới nhất
-client = genai.Client(api_key=GOOGLE_API_KEY)
 
 # Sử dụng model gemini-2.5-flash theo chuẩn API mới để ổn định và không kẹt version
 MODEL_ID = 'gemini-2.5-flash'
+
+# Client khởi tạo lazy (chỉ tạo khi thật sự cần gọi AI) để việc import module
+# không crash khi thiếu GEMINI_API_KEY — quan trọng cho test/CI vốn mock hàm này.
+_client = None
+
+
+def _get_client():
+    """Trả về Gemini client, khởi tạo lần đầu. Raise nếu thiếu key."""
+    global _client
+    if _client is None:
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            raise ValueError("Chưa tìm thấy GEMINI_API_KEY trong file .env. Hãy kiểm tra lại!")
+        _client = genai.Client(api_key=api_key)
+    return _client
 
 def analyze_sentiment(topic, text_data_list):
     """
@@ -68,7 +76,7 @@ NHIỆM VỤ CỦA BẠN:
         try:
             print(f"[*] 🧠 Đang đánh thức AI ({MODEL_ID}) (Lần {attempt+1}/{max_retries})...")
             # Sử dụng SDK genai mới
-            response = client.models.generate_content(
+            response = _get_client().models.generate_content(
                 model=MODEL_ID,
                 contents=prompt,
                 config=types.GenerateContentConfig(
