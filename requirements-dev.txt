@@ -1,0 +1,7 @@
+# Phụ thuộc cho phát triển & kiểm thử (không cần để chạy app).
+# Cài kèm: pip install -r requirements.txt -r requirements-dev.txt
+
+-r requirements.txt
+
+pytest>=8.0.0          # chạy unit test
+playwright>=1.40.0     # chụp ảnh giao diện Web cho README (make_web_screenshot.py)

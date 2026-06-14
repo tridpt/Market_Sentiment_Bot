@@ -42,7 +42,7 @@ def analyze_sentiment(topic, text_data_list):
 
     prompt = f"""
 Bạn là một chuyên gia phân tích dữ liệu tâm lý khách hàng (Customer Sentiment Analyst).
-Dưới đây là tập hợp các phản hồi, bài đăng, bình luận cào được từ không gian mạng (Reddit) về chủ đề/sản phẩm: "{topic}".
+Dưới đây là tập hợp các phản hồi, bài đăng, bình luận, tin tức cào được từ nhiều nguồn trên mạng (tin tức, diễn đàn, mạng xã hội) về chủ đề/sản phẩm: "{topic}".
 
 NHIỆM VỤ CỦA BẠN:
 1. Đọc kỹ và xác định tỷ lệ % sắc thái của dư luận: Tích cực, Tiêu cực, và Trung lập (tổng phải bằng 100).

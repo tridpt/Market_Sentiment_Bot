@@ -169,6 +169,7 @@ python main.py
 ## 🧪 Kiểm thử
 
 ```bash
+pip install -r requirements-dev.txt   # pytest (+ playwright cho ảnh demo)
 python -m pytest tests/ -v
 ```
 
@@ -190,7 +191,9 @@ Market_Sentiment_Bot/
 ├── webapp.py         # Web UI (Flask)
 ├── main.py           # CLI
 ├── tests/            # 44 unit test (pytest)
-├── requirements.txt
+├── docs/             # Tài liệu kỹ thuật
+├── requirements.txt        # Phụ thuộc để chạy app
+├── requirements-dev.txt    # Phụ thuộc dev/test (pytest, playwright)
 └── .env.example
 ```
 
@@ -216,6 +219,10 @@ Tài liệu kỹ thuật chi tiết nằm trong thư mục [`docs/`](docs/):
 
 - **Không commit `.env`** — file này chứa token/API key thật và đã được `.gitignore` loại trừ.
 - Web UI mặc định chỉ chạy `127.0.0.1` (máy bạn) và **chưa có xác thực** — đừng expose ra internet khi chưa thêm lớp bảo vệ.
+
+## 📝 Lịch sử phiên bản
+
+Xem [CHANGELOG.md](CHANGELOG.md) để biết các thay đổi qua từng phiên bản.
 
 ## 📄 License
 
