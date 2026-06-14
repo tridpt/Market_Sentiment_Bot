@@ -4,3 +4,6 @@ requests>=2.30.0
 python-telegram-bot>=22.0
 matplotlib>=3.8.0
 flask>=3.0.0
+
+# Dev / test
+pytest>=8.0.0

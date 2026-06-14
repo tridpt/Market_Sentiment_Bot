@@ -17,3 +17,6 @@ venv/
 # Dữ liệu sinh ra lúc chạy
 reports/
 data/
+
+# Test cache
+.pytest_cache/
