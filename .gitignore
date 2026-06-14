@@ -1,0 +1,15 @@
+# Secrets / cấu hình nhạy cảm
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
