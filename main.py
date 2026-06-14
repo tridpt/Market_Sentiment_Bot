@@ -1,61 +1,67 @@
+"""CLI: phân tích tâm lý thị trường từ terminal, có xuất báo cáo + biểu đồ."""
 import sys
-from scraper import fetch_market_data
-from analyzer import analyze_sentiment
+
+# Ép stdout/stderr về UTF-8 để emoji không làm crash khi chạy/pipe trên Windows (cp1252)
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
+from engine import run_analysis
+from reporter import format_text, save_report
+from charts import make_pie_chart, make_trend_chart
+import history
+
 
 def main():
-    print("="*60)
+    print("=" * 60)
     print("🚀 HỆ THỐNG PHÂN TÍCH TÂM LÝ THỊ TRƯỜNG (DÙNG AI) 🚀")
-    print("="*60)
+    print("=" * 60)
     print()
-    
-    # 1. Nhập liệu
+
     topic = input("Nhập sản phẩm/chủ đề bạn muốn soi (VD: Cybertruck, iPhone 15...): ").strip()
     if not topic:
         print("Chưa nhập chủ đề, tự động thoát.")
         return
 
-    # 2. Cào dữ liệu (Bot Thợ Mỏ)
     print(f"\n[BƯỚC 1] BẮT ĐẦU ĐÀO DỮ LIỆU TỪ TIN TỨC & DIỄN ĐÀN (Hacker News + Google News)...")
-    data_list = fetch_market_data(topic, limit=50) # Cố lấy 50 bài gần nhất mỗi nguồn
-    
-    if not data_list:
-        print("\n[!] Không múc được dữ liệu nào. Có vẻ từ khóa hiếm quá.")
+    print("[BƯỚC 2] TRUYỀN DỮ LIỆU CHO BỘ NÃO MÁY GEMINI...\n")
+
+    res = run_analysis(topic, limit=50)
+    if not res["ok"]:
+        print(f"\n[!] {res['error']}")
         return
-        
-    print(f"Tổng khối lượng text chuẩn bị nhồi vào AI: ~{sum(len(t) for t in data_list):,} ký tự.")
-    
-    # 3. Phân tích bằng AI (Bot Phân Tích)
-    print("\n[BƯỚC 2] TRUYỀN DỮ LIỆU CHO BỘ NÃO MÁY GEMINI...")
-    result = analyze_sentiment(topic, data_list)
-    
-    if not result:
-        print("\n[!] Chết dở, lỗi khi đọc tính toán tâm lý :(")
-        return
-        
-    # 4. Trình bày Báo cáo đẹp mắt (Bot Báo Cáo)
-    print("\n\n" + "="*60)
-    print(f"📊 BẢNG BÁO CÁO CẢM XÚC THỊ TRƯỜNG: {topic.upper()} 📊")
-    print("="*60)
-    print(f">> THÁI ĐỘ TỔNG QUAN: {str(result.get('tong_quan', 'Không rõ')).upper()}")
-    
-    # Căn lề số liệu %
-    tich_cuc = result.get('phan_tram_tich_cuc', 0)
-    tieu_cuc = result.get('phan_tram_tieu_cuc', 0)
-    trung_lap = result.get('phan_tram_trung_lap', 0)
-    print(f">> TỶ LỆ DƯ LUẬN: Tích cực ({tich_cuc}%) | Tiêu cực ({tieu_cuc}%) | Trung lập ({trung_lap}%)")
-    
-    print("\n✅ TOP 3 ĐIỂM NGƯỜI TA KHEN NHIỀU NHẤT:")
-    for idx, khen in enumerate(result.get('top_3_khen', [])):
-        print(f"  {idx+1}. {khen}")
-        
-    print("\n❌ TOP 3 ĐIỂM NGƯỜI TA BỨC XÚC/CHÊ TRÁCH:")
-    for idx, che in enumerate(result.get('top_3_che', [])):
-        print(f"  {idx+1}. {che}")
-        
-    print("\n💡 KẾT LUẬN CỦA CHUYÊN GIA AI:")
-    print(f"  {result.get('ket_luan_ngan', '...')}")
-    print("="*60)
-    print("✨ Hoàn tất báo cáo! ✨")
+
+    result = res["result"]
+
+    # In báo cáo
+    print("\n\n" + format_text(topic, result))
+
+    # Xuất file Markdown + JSON
+    md_path = save_report(topic, result, fmt="md")
+    json_path = save_report(topic, result, fmt="json")
+    print(f"\n📄 Đã lưu báo cáo: {md_path}")
+    print(f"📄 Đã lưu JSON:    {json_path}")
+
+    # Vẽ biểu đồ tròn
+    try:
+        pie = make_pie_chart(topic, result)
+        print(f"📈 Biểu đồ tròn:   {pie}")
+    except Exception as e:
+        print(f"[!] Không vẽ được biểu đồ tròn: {e}")
+
+    # Vẽ biểu đồ xu hướng nếu đã có >= 2 lần phân tích cùng chủ đề
+    records = history.get_history_for_topic(topic)
+    if len(records) >= 2:
+        try:
+            trend = make_trend_chart(topic, records)
+            print(f"📉 Biểu đồ xu hướng: {trend}")
+        except Exception as e:
+            print(f"[!] Không vẽ được biểu đồ xu hướng: {e}")
+
+    print("\n✨ Hoàn tất báo cáo! ✨")
+
 
 if __name__ == "__main__":
     try:
