@@ -28,9 +28,9 @@ from telegram.ext import (
     filters,
 )
 
-from engine import run_analysis
-from reporter import format_telegram
-from charts import make_pie_chart, make_trend_chart
+from engine import run_analysis, run_comparison, parse_topics
+from reporter import format_telegram, format_comparison_telegram
+from charts import make_pie_chart, make_trend_chart, make_comparison_chart
 import history
 
 load_dotenv()
@@ -107,6 +107,10 @@ async def analyze_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not topic:
         return
 
+    # Nếu nhập nhiều chủ đề (vs / phẩy) -> tự chuyển sang chế độ so sánh
+    if len(parse_topics(topic)) >= 2:
+        return await _do_comparison(update, topic)
+
     await update.message.reply_text(f"⛏️ Đang đào dữ liệu & phân tích '{topic}'... chờ chút nhé.")
     await update.message.chat.send_action(ChatAction.TYPING)
 
@@ -132,11 +136,47 @@ async def analyze_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pass
 
 
+async def _do_comparison(update, topics_text):
+    """Chạy so sánh nhiều chủ đề và gửi báo cáo + biểu đồ cột."""
+    topics = parse_topics(topics_text)
+    await update.message.reply_text(
+        f"⚖️ Đang so sánh {len(topics)} chủ đề: {', '.join(topics)}... chờ chút nhé."
+    )
+    await update.message.chat.send_action(ChatAction.TYPING)
+
+    res = await asyncio.to_thread(run_comparison, topics, 50, True)
+    if not res["ok"]:
+        await update.message.reply_text(f"❌ {res['error']}")
+        return
+
+    await update.message.reply_text(
+        format_comparison_telegram(res["items"]), parse_mode="HTML"
+    )
+    try:
+        chart = await asyncio.to_thread(make_comparison_chart, res["items"])
+        if chart:
+            with open(chart, "rb") as f:
+                await update.message.reply_photo(photo=f, caption="📊 So sánh cảm xúc")
+    except Exception:
+        pass
+
+
+async def compare_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not _is_allowed(update):
+        return await _deny(update)
+    text = " ".join(context.args).strip()
+    if len(parse_topics(text)) < 2:
+        await update.message.reply_text("Cú pháp: /compare iPhone vs Samsung")
+        return
+    await _do_comparison(update, text)
+
+
 def main():
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("history", history_cmd))
     app.add_handler(CommandHandler("trend", trend_cmd))
+    app.add_handler(CommandHandler("compare", compare_cmd))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, analyze_msg))
 
     print("🤖 Bot đang chạy... (Ctrl+C để dừng)")

@@ -73,3 +73,56 @@ def run_analysis(topic, limit=50, save_history=True, use_cache=True):
         _cache_set(topic, outcome)
 
     return {**outcome, "cached": False}
+
+
+def parse_topics(text):
+    """
+    Tách chuỗi nhập thành danh sách chủ đề. Hỗ trợ các dấu phân tách:
+    'vs', 'versus', 'với', dấu phẩy. VD: 'iPhone vs Samsung' -> ['iPhone', 'Samsung'].
+    """
+    import re
+    if not text:
+        return []
+    parts = re.split(r"\s+vs\.?\s+|\s+versus\s+|\s+với\s+|,", text, flags=re.IGNORECASE)
+    return [p.strip() for p in parts if p.strip()]
+
+
+def run_comparison(topics, limit=50, save_history=True, use_cache=True):
+    """
+    Phân tích nhiều chủ đề và gộp kết quả để so sánh.
+    `topics` có thể là chuỗi ('iPhone vs Samsung') hoặc list.
+    Trả về dict: {ok, items, error}. Mỗi item: {topic, ok, result, source_count, error}.
+    """
+    if isinstance(topics, str):
+        topics = parse_topics(topics)
+    # Khử trùng lặp giữ thứ tự
+    seen = set()
+    clean_topics = []
+    for t in topics:
+        key = t.strip().lower()
+        if t.strip() and key not in seen:
+            seen.add(key)
+            clean_topics.append(t.strip())
+
+    if len(clean_topics) < 2:
+        return {"ok": False, "error": "Cần ít nhất 2 chủ đề để so sánh (VD: 'iPhone vs Samsung').",
+                "items": []}
+
+    items = []
+    for topic in clean_topics:
+        res = run_analysis(topic, limit=limit, save_history=save_history, use_cache=use_cache)
+        items.append({
+            "topic": topic,
+            "ok": res["ok"],
+            "result": res.get("result"),
+            "source_count": res.get("source_count", 0),
+            "error": res.get("error"),
+        })
+
+    ok_items = [it for it in items if it["ok"]]
+    if len(ok_items) < 2:
+        return {"ok": False,
+                "error": "Không đủ dữ liệu để so sánh (cần ít nhất 2 chủ đề phân tích thành công).",
+                "items": items}
+
+    return {"ok": True, "error": None, "items": items}

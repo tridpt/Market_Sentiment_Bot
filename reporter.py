@@ -103,3 +103,50 @@ def save_report(topic, result, fmt="md"):
         with open(path, "w", encoding="utf-8") as f:
             f.write(format_markdown(topic, result))
     return path
+
+
+def format_comparison_text(items):
+    """Báo cáo so sánh dạng text cho terminal. items: list {topic, ok, result, error}."""
+    lines = []
+    lines.append("=" * 60)
+    lines.append("📊 BẢNG SO SÁNH CẢM XÚC THỊ TRƯỜNG 📊")
+    lines.append("=" * 60)
+    ok = [it for it in items if it.get("ok")]
+    for it in items:
+        if not it.get("ok"):
+            lines.append(f"\n⚠️ {it['topic']}: {it.get('error', 'lỗi')}")
+            continue
+        r = it["result"]
+        lines.append(f"\n▶ {it['topic'].upper()} ({it.get('source_count', 0)} nguồn)")
+        lines.append(f"   Tổng quan: {r.get('tong_quan', '?')}")
+        lines.append(f"   ✅ {r.get('phan_tram_tich_cuc', 0)}% | "
+                     f"❌ {r.get('phan_tram_tieu_cuc', 0)}% | "
+                     f"⚪ {r.get('phan_tram_trung_lap', 0)}%")
+
+    # Kết luận: ai tích cực nhất
+    if len(ok) >= 2:
+        winner = max(ok, key=lambda it: it["result"].get("phan_tram_tich_cuc", 0))
+        lines.append(f"\n🏆 Dư luận tích cực nhất: {winner['topic'].upper()} "
+                     f"({winner['result'].get('phan_tram_tich_cuc', 0)}% tích cực)")
+    lines.append("=" * 60)
+    return "\n".join(lines)
+
+
+def format_comparison_telegram(items):
+    """Báo cáo so sánh dạng HTML cho Telegram."""
+    out = ["📊 <b>SO SÁNH CẢM XÚC THỊ TRƯỜNG</b>"]
+    ok = [it for it in items if it.get("ok")]
+    for it in items:
+        if not it.get("ok"):
+            out.append(f"\n⚠️ <b>{it['topic']}</b>: {it.get('error', 'lỗi')}")
+            continue
+        r = it["result"]
+        out.append(f"\n▶ <b>{it['topic'].upper()}</b> — {r.get('tong_quan', '?')}")
+        out.append(f"✅ {r.get('phan_tram_tich_cuc', 0)}% | "
+                   f"❌ {r.get('phan_tram_tieu_cuc', 0)}% | "
+                   f"⚪ {r.get('phan_tram_trung_lap', 0)}%")
+    if len(ok) >= 2:
+        winner = max(ok, key=lambda it: it["result"].get("phan_tram_tich_cuc", 0))
+        out.append(f"\n🏆 <b>Tích cực nhất:</b> {winner['topic'].upper()} "
+                   f"({winner['result'].get('phan_tram_tich_cuc', 0)}%)")
+    return "\n".join(out)
