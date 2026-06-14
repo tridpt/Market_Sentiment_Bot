@@ -14,6 +14,10 @@ rồi nhờ **Google Gemini** tổng hợp xem cộng đồng đang khen gì, ch
 [![Tests](https://github.com/tridpt/Market_Sentiment_Bot/actions/workflows/tests.yml/badge.svg)](https://github.com/tridpt/Market_Sentiment_Bot/actions/workflows/tests.yml)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
+<br>
+
+<img src="assets/web_analysis.png" alt="Giao diện Web - phân tích một sản phẩm" width="80%">
+
 </div>
 
 ---
@@ -100,9 +104,9 @@ Mỗi báo cáo còn kèm biểu đồ trực quan (do chính app sinh ra bằng
 |:---:|:---:|
 | <img src="assets/demo_pie.png" width="380"> | <img src="assets/demo_trend.png" width="380"> |
 
-**So sánh nhiều sản phẩm**
+**So sánh nhiều sản phẩm** (`iPhone vs Samsung`) — báo cáo cạnh nhau + biểu đồ cột + chốt ai được khen nhất
 
-<img src="assets/demo_compare.png" width="640">
+<img src="assets/web_compare.png" alt="Giao diện Web - so sánh sản phẩm" width="80%">
 
 </div>
 
