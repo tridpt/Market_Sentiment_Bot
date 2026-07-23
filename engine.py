@@ -46,27 +46,28 @@ def clear_cache():
     _cache.clear()
 
 
-def _cache_key(topic, limit):
-    """Cache key gồm cả topic lẫn limit vì limit khác nhau -> dữ liệu khác nhau."""
-    return (topic.strip().lower(), int(limit))
+def _cache_key(topic, limit, time_range):
+    """Cache key gồm topic + limit + time_range vì mỗi tham số đổi -> dữ liệu khác nhau."""
+    return (topic.strip().lower(), int(limit), time_range)
 
 
-def _cache_get(topic, limit):
+def _cache_get(topic, limit, time_range):
     """Trả về kết quả còn hạn trong cache, hoặc None nếu hết hạn/không có."""
-    entry = _cache.get(_cache_key(topic, limit))
+    entry = _cache.get(_cache_key(topic, limit, time_range))
     if entry and (time.time() - entry["ts"]) < CACHE_TTL:
         return entry["data"]
     return None
 
 
-def _cache_set(topic, limit, data):
-    _cache[_cache_key(topic, limit)] = {"ts": time.time(), "data": data}
+def _cache_set(topic, limit, time_range, data):
+    _cache[_cache_key(topic, limit, time_range)] = {"ts": time.time(), "data": data}
 
 
-def run_analysis(topic, limit=50, save_history=True, use_cache=True):
+def run_analysis(topic, limit=50, save_history=True, use_cache=True, time_range=None):
     """
     Chạy toàn bộ pipeline cho một chủ đề.
-    Trả về dict: {ok, result, source_count, error, cached}.
+    `time_range` (week/month/year/None) lọc dữ liệu theo độ mới.
+    Trả về dict: {ok, result, source_count, error, cached, sources}.
     """
     topic = (topic or "").strip()
     if not topic:
@@ -75,12 +76,12 @@ def run_analysis(topic, limit=50, save_history=True, use_cache=True):
 
     # 1) Thử lấy từ cache trước
     if use_cache:
-        cached = _cache_get(topic, limit)
+        cached = _cache_get(topic, limit, time_range)
         if cached is not None:
             return {**cached, "cached": True}
 
     # 2) Cào dữ liệu
-    data_list = fetch_market_data(topic, limit=limit)
+    data_list = fetch_market_data(topic, limit=limit, time_range=time_range)
     if not data_list:
         return {"ok": False, "error": "Không cào được dữ liệu nào cho chủ đề này.",
                 "result": None, "source_count": 0, "cached": False}
@@ -111,7 +112,7 @@ def run_analysis(topic, limit=50, save_history=True, use_cache=True):
 
     # 5) Lưu cache
     if use_cache:
-        _cache_set(topic, limit, outcome)
+        _cache_set(topic, limit, time_range, outcome)
 
     return {**outcome, "cached": False}
 
@@ -132,10 +133,11 @@ def parse_topics(text):
 MAX_COMPARE_TOPICS = 4
 
 
-def run_comparison(topics, limit=50, save_history=True, use_cache=True):
+def run_comparison(topics, limit=50, save_history=True, use_cache=True, time_range=None):
     """
     Phân tích nhiều chủ đề và gộp kết quả để so sánh.
     `topics` có thể là chuỗi ('iPhone vs Samsung') hoặc list.
+    `time_range` (week/month/year/None) lọc dữ liệu theo độ mới.
     Trả về dict: {ok, items, error}. Mỗi item: {topic, ok, result, source_count, error}.
     """
     if isinstance(topics, str):
@@ -161,7 +163,8 @@ def run_comparison(topics, limit=50, save_history=True, use_cache=True):
 
     items = []
     for topic in clean_topics:
-        res = run_analysis(topic, limit=limit, save_history=save_history, use_cache=use_cache)
+        res = run_analysis(topic, limit=limit, save_history=save_history,
+                           use_cache=use_cache, time_range=time_range)
         items.append({
             "topic": topic,
             "ok": res["ok"],

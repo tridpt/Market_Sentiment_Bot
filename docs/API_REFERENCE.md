@@ -6,7 +6,7 @@ Tài liệu liệt kê các hàm công khai của từng module, tham số, giá
 
 ## `engine.py` — Lõi điều phối
 
-### `run_analysis(topic, limit=50, save_history=True, use_cache=True)`
+### `run_analysis(topic, limit=50, save_history=True, use_cache=True, time_range=None)`
 Chạy toàn bộ pipeline cho **một** chủ đề.
 
 | Tham số | Kiểu | Mặc định | Mô tả |
@@ -15,6 +15,7 @@ Chạy toàn bộ pipeline cho **một** chủ đề.
 | `limit` | int | 50 | Số kết quả tối đa lấy từ mỗi nguồn |
 | `save_history` | bool | True | Có lưu vào lịch sử không |
 | `use_cache` | bool | True | Có dùng/ghi cache không |
+| `time_range` | str \| None | None | Lọc độ mới: `week`/`month`/`year` (cũng nằm trong cache key) |
 
 **Trả về** `dict`:
 ```python
@@ -43,6 +44,7 @@ if res["ok"]:
 Phân tích **nhiều** chủ đề rồi gộp để so sánh.
 
 - `topics`: chuỗi (`"iPhone vs Samsung"`) hoặc list (`["iPhone", "Samsung"]`).
+- Nhận thêm `time_range` (`week`/`month`/`year`/`None`) và tối đa `MAX_COMPARE_TOPICS` (4) chủ đề.
 - **Trả về** `dict`: `{ok, error, items}`, trong đó `items` là list các `{topic, ok, result, source_count, error}`.
 - Cần ít nhất 2 chủ đề phân tích thành công, nếu không `ok=False`.
 

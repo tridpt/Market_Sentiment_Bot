@@ -6,6 +6,7 @@ from flask import (Flask, request, render_template_string, send_from_directory,
                    redirect, url_for, jsonify)
 
 from engine import run_analysis, run_comparison, parse_topics
+from scraper import TIME_RANGES
 from jobs import JobManager
 from ratelimit import RateLimiter
 import history
@@ -53,6 +54,7 @@ PAGE = """
     .sub { color:#9aa0c0; margin-bottom: 24px; font-size: 14px; }
     form { display:flex; gap:10px; margin-bottom: 28px; flex-wrap: wrap; }
     input[type=text] { flex:1; min-width: 220px; padding:13px 16px; border-radius:10px; border:1px solid #2a2f55; background:#1a1e3a; color:#fff; font-size:15px; }
+    select { padding:13px 12px; border-radius:10px; border:1px solid #2a2f55; background:#1a1e3a; color:#fff; font-size:15px; }
     button { padding:13px 24px; border:0; border-radius:10px; background:#5468ff; color:#fff; font-size:15px; font-weight:600; cursor:pointer; }
     button:hover { background:#4055e0; }
     .card { background:#1a1e3a; border:1px solid #2a2f55; border-radius:14px; padding:24px; margin-bottom:20px; }
@@ -82,6 +84,12 @@ PAGE = """
     <div class="sub">Đo nhiệt dư luận thị trường bằng AI (Hacker News + Google News + Gemini)</div>
     <form method="get" action="/">
       <input type="text" name="topic" placeholder="Nhập sản phẩm/chủ đề (VD: Cybertruck, VinFast...)" value="{{ topic or '' }}" autofocus>
+      <select name="range" title="Lọc theo độ mới của dữ liệu">
+        <option value="" {% if not selected_range %}selected{% endif %}>Mọi thời điểm</option>
+        <option value="week" {% if selected_range == 'week' %}selected{% endif %}>7 ngày qua</option>
+        <option value="month" {% if selected_range == 'month' %}selected{% endif %}>30 ngày qua</option>
+        <option value="year" {% if selected_range == 'year' %}selected{% endif %}>1 năm qua</option>
+      </select>
       <button type="submit">Phân tích</button>
     </form>
 
@@ -167,18 +175,19 @@ def _render(**kwargs):
     defaults = dict(topic=None, result=None, error=None, source_count=0,
                     pie_url=None, trend_url=None, compare_items=None,
                     compare_topics=None, compare_winner=None, compare_url=None,
-                    loading=False, sources=None)
+                    loading=False, sources=None, selected_range="")
     defaults.update(kwargs)
     return render_template_string(PAGE, **defaults)
 
 
 # ===================== Job workers (chạy nền) =====================
 
-def _analyze_job(topic):
+def _analyze_job(topic, time_range=None):
     """Worker: phân tích 1 chủ đề + sinh biểu đồ. Trả payload để render."""
-    outcome = run_analysis(topic, limit=50, save_history=True)
+    outcome = run_analysis(topic, limit=50, save_history=True, time_range=time_range)
     if not outcome["ok"]:
-        return {"kind": "single", "topic": topic, "error": outcome["error"]}
+        return {"kind": "single", "topic": topic, "error": outcome["error"],
+                "selected_range": time_range or ""}
 
     result = outcome["result"]
     pie_url = trend_url = None
@@ -198,16 +207,18 @@ def _analyze_job(topic):
     return {"kind": "single", "topic": topic, "error": None, "result": result,
             "source_count": outcome["source_count"],
             "sources": outcome.get("sources", []),
-            "pie_url": pie_url, "trend_url": trend_url}
+            "pie_url": pie_url, "trend_url": trend_url,
+            "selected_range": time_range or ""}
 
 
-def _compare_job(topic):
+def _compare_job(topic, time_range=None):
     """Worker: so sánh nhiều chủ đề + sinh biểu đồ cột. Trả payload để render."""
     topics = parse_topics(topic)
-    outcome = run_comparison(topics, limit=50, save_history=True)
+    outcome = run_comparison(topics, limit=50, save_history=True, time_range=time_range)
     topics_str = ", ".join(topics)
     if not outcome["ok"]:
-        return {"kind": "compare", "topics_str": topics_str, "error": outcome["error"]}
+        return {"kind": "compare", "topics_str": topics_str, "error": outcome["error"],
+                "selected_range": time_range or ""}
 
     items = outcome["items"]
     ok_items = [it for it in items if it.get("ok")]
@@ -225,7 +236,8 @@ def _compare_job(topic):
         print(f"[!] ⚠️ Không vẽ được biểu đồ so sánh: {e}")
 
     return {"kind": "compare", "topics_str": topics_str, "error": None,
-            "items": items, "winner": winner, "compare_url": compare_url}
+            "items": items, "winner": winner, "compare_url": compare_url,
+            "selected_range": time_range or ""}
 
 
 # ===================== Routes =====================
@@ -234,17 +246,23 @@ def _compare_job(topic):
 def index():
     # Chấp nhận cả GET (?topic=) lẫn POST (form) để tiện bookmark và submit.
     topic = (request.values.get("topic") or "").strip()
+    # Chỉ chấp nhận khoảng thời gian hợp lệ, còn lại coi như không lọc.
+    time_range = (request.values.get("range") or "").strip().lower()
+    if time_range not in TIME_RANGES:
+        time_range = None
+    selected = time_range or ""
+
     if not topic:
-        return _render()
+        return _render(selected_range=selected)
 
     # Chặn input quá dài (tránh nhồi prompt / lạm dụng)
     if len(topic) > MAX_TOPIC_LEN:
-        return _render(topic=topic[:MAX_TOPIC_LEN],
+        return _render(topic=topic[:MAX_TOPIC_LEN], selected_range=selected,
                        error=f"Chủ đề quá dài (tối đa {MAX_TOPIC_LEN} ký tự).")
 
     topics = parse_topics(topic)
     if len(topics) > MAX_COMPARE_TOPICS:
-        return _render(topic=topic,
+        return _render(topic=topic, selected_range=selected,
                        error=f"Chỉ so sánh tối đa {MAX_COMPARE_TOPICS} chủ đề mỗi lần "
                              f"(bạn nhập {len(topics)}).")
 
@@ -252,12 +270,12 @@ def index():
     ip = _client_ip()
     if not limiter.allow(ip):
         wait = limiter.retry_after(ip)
-        return _render(topic=topic,
+        return _render(topic=topic, selected_range=selected,
                        error=f"Bạn thao tác quá nhanh. Vui lòng thử lại sau {wait} giây."), 429
 
     # Tạo job nền rồi chuyển sang trang kết quả (không khóa request này)
     worker = _compare_job if len(topics) >= 2 else _analyze_job
-    job_id = job_manager.submit(worker, topic)
+    job_id = job_manager.submit(worker, topic, time_range)
     return redirect(url_for("result", job_id=job_id))
 
 
@@ -274,16 +292,17 @@ def result(job_id):
         return _render(error=f"Lỗi khi xử lý: {job['error']}")
 
     payload = job["result"] or {}
+    selected = payload.get("selected_range", "")
     if payload.get("error"):
         topic = payload.get("topic") or payload.get("topics_str")
-        return _render(topic=topic, error=payload["error"])
+        return _render(topic=topic, error=payload["error"], selected_range=selected)
 
     if payload.get("kind") == "compare":
         return _render(topic=payload["topics_str"], compare_items=payload["items"],
-                       compare_topics=payload["topics_str"],
+                       compare_topics=payload["topics_str"], selected_range=selected,
                        compare_winner=payload["winner"], compare_url=payload["compare_url"])
 
-    return _render(topic=payload["topic"], result=payload["result"],
+    return _render(topic=payload["topic"], result=payload["result"], selected_range=selected,
                    source_count=payload["source_count"], sources=payload.get("sources", []),
                    pie_url=payload["pie_url"], trend_url=payload["trend_url"])
 

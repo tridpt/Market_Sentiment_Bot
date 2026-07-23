@@ -57,7 +57,8 @@ def setup_function():
 
 def _patch_two(monkeypatch):
     results = {"iphone": SAMPLE_A, "samsung": SAMPLE_B}
-    monkeypatch.setattr(engine, "fetch_market_data", lambda topic, limit=50: ["tin 1", "tin 2"])
+    monkeypatch.setattr(engine, "fetch_market_data",
+                        lambda topic, limit=50, time_range=None: ["tin 1", "tin 2"])
     monkeypatch.setattr(engine, "analyze_sentiment",
                         lambda topic, lst: results.get(topic.strip().lower(), SAMPLE_A))
     monkeypatch.setattr(engine.history, "save_record", lambda *a, **k: None)
@@ -93,7 +94,7 @@ def test_run_comparison_accepts_list(monkeypatch):
 
 def test_run_comparison_partial_failure(monkeypatch):
     # 1 chủ đề không có dữ liệu -> vẫn cần >= 2 thành công mới ok
-    def fetch(topic, limit=50):
+    def fetch(topic, limit=50, time_range=None):
         return [] if topic.strip().lower() == "samsung" else ["tin"]
     monkeypatch.setattr(engine, "fetch_market_data", fetch)
     monkeypatch.setattr(engine, "analyze_sentiment", lambda t, l: SAMPLE_A)

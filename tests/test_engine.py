@@ -16,7 +16,8 @@ SAMPLE_RESULT = {
 def _patch(monkeypatch, data=None, result=None, save_spy=None):
     """Thay scraper/analyzer/history bằng hàm giả."""
     data = ["tin 1", "tin 2", "tin 3"] if data is None else data
-    monkeypatch.setattr(engine, "fetch_market_data", lambda topic, limit=50: data)
+    monkeypatch.setattr(engine, "fetch_market_data",
+                        lambda topic, limit=50, time_range=None: data)
     monkeypatch.setattr(engine, "analyze_sentiment",
                         lambda topic, lst: result if result is not None else SAMPLE_RESULT)
     if save_spy is not None:
@@ -61,7 +62,7 @@ def test_ai_failure(monkeypatch):
 def test_cache_hit(monkeypatch):
     calls = {"n": 0}
 
-    def counting_fetch(topic, limit=50):
+    def counting_fetch(topic, limit=50, time_range=None):
         calls["n"] += 1
         return ["a", "b"]
 
@@ -87,7 +88,7 @@ def test_cache_case_insensitive(monkeypatch):
 def test_cache_disabled(monkeypatch):
     calls = {"n": 0}
 
-    def counting_fetch(topic, limit=50):
+    def counting_fetch(topic, limit=50, time_range=None):
         calls["n"] += 1
         return ["a"]
 
@@ -127,7 +128,8 @@ def test_sources_extracted_and_attached(monkeypatch):
         {"text": "tin 2", "url": "https://b.com/2", "title": "Bài 2", "source": "Google News"},
         {"text": "tin 3", "url": None, "title": "x", "source": "Reddit"},  # thiếu url -> bỏ
     ]
-    monkeypatch.setattr(engine, "fetch_market_data", lambda topic, limit=50: data)
+    monkeypatch.setattr(engine, "fetch_market_data",
+                        lambda topic, limit=50, time_range=None: data)
     monkeypatch.setattr(engine, "analyze_sentiment", lambda topic, texts: dict(SAMPLE_RESULT))
     monkeypatch.setattr(engine.history, "save_record", lambda *a, **k: None)
 
@@ -142,7 +144,8 @@ def test_sources_extracted_and_attached(monkeypatch):
 def test_analyze_receives_plain_text_not_dicts(monkeypatch):
     captured = {}
     data = [{"text": "hello world data dai hon 20 ky tu", "url": "u", "title": "t", "source": "s"}]
-    monkeypatch.setattr(engine, "fetch_market_data", lambda topic, limit=50: data)
+    monkeypatch.setattr(engine, "fetch_market_data",
+                        lambda topic, limit=50, time_range=None: data)
 
     def fake_analyze(topic, texts):
         captured["texts"] = texts
@@ -160,9 +163,46 @@ def test_sources_deduped_by_url(monkeypatch):
         {"text": "a", "url": "https://same.com", "title": "A", "source": "HN"},
         {"text": "b", "url": "https://same.com", "title": "B", "source": "GN"},  # trùng url
     ]
-    monkeypatch.setattr(engine, "fetch_market_data", lambda topic, limit=50: data)
+    monkeypatch.setattr(engine, "fetch_market_data",
+                        lambda topic, limit=50, time_range=None: data)
     monkeypatch.setattr(engine, "analyze_sentiment", lambda topic, texts: dict(SAMPLE_RESULT))
     monkeypatch.setattr(engine.history, "save_record", lambda *a, **k: None)
 
     res = engine.run_analysis("t", save_history=False, use_cache=False)
     assert len(res["sources"]) == 1
+
+
+def test_time_range_in_cache_key(monkeypatch):
+    calls = {"n": 0}
+
+    def counting_fetch(topic, limit=50, time_range=None):
+        calls["n"] += 1
+        return ["a", "b"]
+
+    monkeypatch.setattr(engine, "fetch_market_data", counting_fetch)
+    monkeypatch.setattr(engine, "analyze_sentiment", lambda t, texts: dict(SAMPLE_RESULT))
+    monkeypatch.setattr(engine.history, "save_record", lambda *a, **k: None)
+
+    # Khác time_range -> khác cache key -> phải fetch lại
+    engine.run_analysis("Tesla", time_range="week", save_history=False)
+    engine.run_analysis("Tesla", time_range="month", save_history=False)
+    assert calls["n"] == 2
+    # Lặp lại cùng time_range -> cache hit, không fetch thêm
+    res = engine.run_analysis("Tesla", time_range="week", save_history=False)
+    assert res["cached"] is True
+    assert calls["n"] == 2
+
+
+def test_time_range_passed_to_fetch(monkeypatch):
+    captured = {}
+
+    def fetch(topic, limit=50, time_range=None):
+        captured["time_range"] = time_range
+        return ["tin dai hon 20 ky tu de qua filter"]
+
+    monkeypatch.setattr(engine, "fetch_market_data", fetch)
+    monkeypatch.setattr(engine, "analyze_sentiment", lambda t, texts: dict(SAMPLE_RESULT))
+    monkeypatch.setattr(engine.history, "save_record", lambda *a, **k: None)
+
+    engine.run_analysis("x", time_range="year", save_history=False, use_cache=False)
+    assert captured["time_range"] == "year"

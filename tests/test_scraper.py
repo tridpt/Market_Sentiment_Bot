@@ -32,10 +32,12 @@ def test_reddit_skips_without_credentials(monkeypatch):
 
 def test_fetch_market_data_dedupes(monkeypatch):
     # Giả lập các nguồn trả về dữ liệu trùng nhau (khác hoa thường)
-    monkeypatch.setattr(scraper, "fetch_hackernews", lambda q, l=50: ["Apple is great", "apple IS great"])
-    monkeypatch.setattr(scraper, "fetch_google_news", lambda q, l=50, lang="en", country="US": ["New phone"])
-    monkeypatch.setattr(scraper, "fetch_youtube_comments", lambda q, l=50: [])
-    monkeypatch.setattr(scraper, "fetch_reddit", lambda q, l=50: [])
+    monkeypatch.setattr(scraper, "fetch_hackernews",
+                        lambda q, l=50, tr=None: ["Apple is great", "apple IS great"])
+    monkeypatch.setattr(scraper, "fetch_google_news",
+                        lambda q, l=50, lang="en", country="US", time_range=None: ["New phone"])
+    monkeypatch.setattr(scraper, "fetch_youtube_comments", lambda q, l=50, tr=None: [])
+    monkeypatch.setattr(scraper, "fetch_reddit", lambda q, l=50, tr=None: [])
 
     result = scraper.fetch_market_data("Apple", limit=50)
     # "Apple is great" và "apple IS great" là trùng -> chỉ giữ 1
@@ -47,16 +49,16 @@ def test_fetch_market_data_dedupes(monkeypatch):
 def test_fetch_market_data_keeps_source_dicts(monkeypatch):
     # Nguồn trả về dict {text,url,title,source}; trùng text bị khử, giữ nguyên dict
     monkeypatch.setattr(scraper, "fetch_hackernews",
-                        lambda q, l=50: [{"text": "Apple good", "url": "https://hn/1",
-                                          "title": "A", "source": "Hacker News"}])
+                        lambda q, l=50, tr=None: [{"text": "Apple good", "url": "https://hn/1",
+                                                   "title": "A", "source": "Hacker News"}])
     monkeypatch.setattr(scraper, "fetch_google_news",
-                        lambda q, l=50, lang="en", country="US": [
+                        lambda q, l=50, lang="en", country="US", time_range=None: [
                             {"text": "Apple good", "url": "https://g/1",  # trùng text -> bỏ
                              "title": "B", "source": "Google News"},
                             {"text": "Different news", "url": "https://g/2",
                              "title": "C", "source": "Google News"}])
-    monkeypatch.setattr(scraper, "fetch_youtube_comments", lambda q, l=50: [])
-    monkeypatch.setattr(scraper, "fetch_reddit", lambda q, l=50: [])
+    monkeypatch.setattr(scraper, "fetch_youtube_comments", lambda q, l=50, tr=None: [])
+    monkeypatch.setattr(scraper, "fetch_reddit", lambda q, l=50, tr=None: [])
 
     result = scraper.fetch_market_data("Apple", limit=50)
     assert len(result) == 2  # "Apple good" trùng -> còn 2
@@ -76,3 +78,33 @@ def test_parse_rss_items_extracts_link():
     items = scraper._parse_rss_items(xml, limit=10)
     assert items[0] == ("Tin A", "Mô tả A", "https://news/a")
     assert items[1][2] == "https://news/b"
+
+
+# ---------- lọc theo khoảng thời gian ----------
+
+def test_time_filters_none_no_filter():
+    f = scraper._time_filters(None)
+    assert f["hn_since"] is None
+    assert f["gnews_suffix"] == ""
+    assert f["reddit_t"] == "month"  # giữ mặc định như trước
+    assert f["yt_after"] is None
+
+
+def test_time_filters_invalid_treated_as_none():
+    f = scraper._time_filters("thap_ky")
+    assert f["hn_since"] is None
+    assert f["reddit_t"] == "month"
+
+
+def test_time_filters_week():
+    f = scraper._time_filters("week")
+    assert isinstance(f["hn_since"], int) and f["hn_since"] > 0
+    assert f["gnews_suffix"] == " when:7d"
+    assert f["reddit_t"] == "week"
+    assert f["yt_after"].endswith("Z")
+
+
+def test_time_filters_year():
+    f = scraper._time_filters("year")
+    assert f["gnews_suffix"] == " when:1y"
+    assert f["reddit_t"] == "year"

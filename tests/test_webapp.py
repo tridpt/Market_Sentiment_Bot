@@ -70,7 +70,7 @@ def test_index_topic_too_long(client):
 
 def test_single_topic_success(client, monkeypatch):
     monkeypatch.setattr(webapp, "run_analysis",
-                        lambda topic, limit=50, save_history=True: {
+                        lambda topic, limit=50, save_history=True, time_range=None: {
                             "ok": True, "result": SAMPLE, "source_count": 12,
                             "error": None, "cached": False,
                         })
@@ -84,7 +84,7 @@ def test_single_topic_success(client, monkeypatch):
 
 def test_single_topic_failure(client, monkeypatch):
     monkeypatch.setattr(webapp, "run_analysis",
-                        lambda topic, limit=50, save_history=True: {
+                        lambda topic, limit=50, save_history=True, time_range=None: {
                             "ok": False, "result": None, "source_count": 0,
                             "error": "Không cào được dữ liệu nào cho chủ đề này.",
                             "cached": False,
@@ -105,7 +105,7 @@ def test_compare_success(client, monkeypatch):
          "result": {**SAMPLE, "phan_tram_tich_cuc": 40}, "source_count": 8, "error": None},
     ]
     monkeypatch.setattr(webapp, "run_comparison",
-                        lambda topics, limit=50, save_history=True: {
+                        lambda topics, limit=50, save_history=True, time_range=None: {
                             "ok": True, "items": items, "error": None,
                         })
     resp = client.get("/", query_string={"topic": "iPhone vs Samsung"}, follow_redirects=True)
@@ -117,7 +117,7 @@ def test_compare_success(client, monkeypatch):
 
 def test_single_topic_shows_sources(client, monkeypatch):
     monkeypatch.setattr(webapp, "run_analysis",
-                        lambda topic, limit=50, save_history=True: {
+                        lambda topic, limit=50, save_history=True, time_range=None: {
                             "ok": True, "result": SAMPLE, "source_count": 5,
                             "error": None, "cached": False,
                             "sources": [{"title": "Bài A", "url": "https://a.com/x",
@@ -134,7 +134,7 @@ def test_rate_limit_exceeded(client, monkeypatch):
     # Giới hạn chặt: 1 request / cửa sổ -> request thứ 2 bị chặn 429
     monkeypatch.setattr(webapp, "limiter", RateLimiter(max_requests=1, window=60))
     monkeypatch.setattr(webapp, "run_analysis",
-                        lambda topic, limit=50, save_history=True: {
+                        lambda topic, limit=50, save_history=True, time_range=None: {
                             "ok": True, "result": SAMPLE, "source_count": 1,
                             "error": None, "cached": False,
                         })

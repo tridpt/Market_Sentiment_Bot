@@ -59,6 +59,7 @@ reporter.py  charts.py  history.py   (output)   ← Trình bày & lưu trữ
 | `webapp.py` | Giao diện Web (Flask) | `flask`, `engine`, `jobs`, `ratelimit` |
 | `jobs.py` | Hàng đợi job chạy nền cho Web (ThreadPoolExecutor) | — |
 | `ratelimit.py` | Rate limiter theo IP (cửa sổ trượt) cho Web | — |
+| `scheduler.py` | Quét định kỳ danh sách chủ đề theo lịch + thông báo Telegram | `engine`, `requests` |
 | `main.py` | Giao diện CLI | `engine` |
 
 ## Quyết định thiết kế

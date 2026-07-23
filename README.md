@@ -43,6 +43,8 @@ lại thành một báo cáo gọn — tỷ lệ tích cực/tiêu cực, top đ
 | 🕒 **Theo dõi xu hướng** | Lưu lịch sử để xem dư luận thay đổi qua thời gian |
 | 📄 **Xuất báo cáo** | Markdown + JSON có timestamp, lưu lại để đối chiếu |
 | 🔗 **Trích nguồn** | Báo cáo đính link bài viết/tin gốc (HN, Google News, YouTube, Reddit) để kiểm chứng |
+| ⏳ **Lọc thời gian** | Chỉ lấy dữ liệu trong 7 ngày / 30 ngày / 1 năm qua để đo dư luận theo độ mới |
+| 📅 **Quét định kỳ** | `scheduler.py` tự phân tích danh sách chủ đề theo lịch, tích lũy xu hướng + gửi tóm tắt Telegram |
 | ⚡ **Cache thông minh** | Quét lại cùng chủ đề trong 10 phút trả kết quả cũ — tiết kiệm quota Gemini |
 | 🌍 **Đa nguồn** | Hacker News + Google News (Anh & Việt); tùy chọn thêm YouTube + Reddit |
 
@@ -192,8 +194,9 @@ Market_Sentiment_Bot/
 ├── webapp.py         # Web UI (Flask) — job nền + rate limit
 ├── jobs.py           # Hàng đợi job chạy nền cho Web
 ├── ratelimit.py      # Rate limiter theo IP cho Web
+├── scheduler.py      # Quét định kỳ theo lịch + thông báo Telegram
 ├── main.py           # CLI
-├── tests/            # 81 unit test (pytest)
+├── tests/            # 94 unit test (pytest)
 ├── docs/             # Tài liệu kỹ thuật
 ├── requirements.txt        # Phụ thuộc để chạy app
 ├── requirements-dev.txt    # Phụ thuộc dev/test (pytest, playwright)
@@ -214,9 +217,9 @@ Tài liệu kỹ thuật chi tiết nằm trong thư mục [`docs/`](docs/):
 ## 🗺️ Hướng phát triển
 
 - [x] Trích nguồn (đính link bài viết gốc trong báo cáo)
-- [ ] Lọc theo khoảng thời gian (1 tuần / 1 tháng / 1 năm)
+- [x] Lọc theo khoảng thời gian (1 tuần / 1 tháng / 1 năm)
+- [x] Bot tự quét theo lịch và gửi báo cáo xu hướng định kỳ
 - [ ] Deploy 24/7 (Railway / Render) để bot luôn online
-- [ ] Bot tự quét theo lịch và gửi báo cáo xu hướng định kỳ
 
 ## ⚠️ Lưu ý bảo mật
 

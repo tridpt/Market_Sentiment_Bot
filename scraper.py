@@ -6,6 +6,7 @@ import re
 import html
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone, timedelta
 
 from dotenv import load_dotenv
 
@@ -13,6 +14,29 @@ load_dotenv()
 
 # Deadline tổng cho toàn bộ bước cào dữ liệu (giây). Tránh treo request quá lâu.
 FETCH_TOTAL_TIMEOUT = int(os.getenv("FETCH_TOTAL_TIMEOUT", "45"))
+
+# Các khoảng thời gian hợp lệ để lọc dữ liệu theo độ mới.
+TIME_RANGES = ("week", "month", "year")
+_RANGE_DAYS = {"week": 7, "month": 30, "year": 365}
+_GNEWS_WHEN = {"week": "when:7d", "month": "when:30d", "year": "when:1y"}
+
+
+def _time_filters(time_range):
+    """Chuyển `time_range` thành tham số lọc cho từng nguồn.
+
+    Trả về dict: {hn_since (epoch|None), gnews_suffix (str), reddit_t (str), yt_after (str|None)}.
+    `time_range` không hợp lệ / None => không lọc (Reddit giữ mặc định 'month' như trước).
+    """
+    days = _RANGE_DAYS.get(time_range)
+    if not days:
+        return {"hn_since": None, "gnews_suffix": "", "reddit_t": "month", "yt_after": None}
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    return {
+        "hn_since": int(cutoff.timestamp()),
+        "gnews_suffix": " " + _GNEWS_WHEN[time_range],
+        "reddit_t": time_range,  # Reddit chấp nhận week/month/year
+        "yt_after": cutoff.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
 
 
 def _clean(text):
@@ -58,13 +82,16 @@ def _parse_rss_items(xml_text, limit):
     return results
 
 
-def fetch_hackernews(query, limit=50):
+def fetch_hackernews(query, limit=50, time_range=None):
     """Cào tiêu đề + nội dung bài viết/bình luận từ Hacker News (Algolia API)."""
     encoded = urllib.parse.quote(query)
     url = (
         f"https://hn.algolia.com/api/v1/search?query={encoded}"
         f"&tags=(story,comment)&hitsPerPage={limit}"
     )
+    hn_since = _time_filters(time_range)["hn_since"]
+    if hn_since:
+        url += f"&numericFilters=created_at_i>{hn_since}"
     texts = []
     try:
         print(f"[*] ⛏️ Đang cào dữ liệu từ Hacker News cho: '{query}'...")
@@ -86,8 +113,10 @@ def fetch_hackernews(query, limit=50):
     return texts
 
 
-def fetch_google_news(query, limit=50, lang="en", country="US"):
+def fetch_google_news(query, limit=50, lang="en", country="US", time_range=None):
     """Cào tiêu đề + mô tả tin tức từ Google News RSS theo ngôn ngữ/quốc gia."""
+    # Google News hỗ trợ toán tử when: trong truy vấn để lọc theo độ mới.
+    query = query + _time_filters(time_range)["gnews_suffix"]
     encoded = urllib.parse.quote(query)
     hl = f"{lang}-{country}"
     ceid = f"{country}:{lang}"
@@ -114,7 +143,7 @@ def fetch_google_news(query, limit=50, lang="en", country="US"):
     return texts
 
 
-def fetch_youtube_comments(query, limit=50):
+def fetch_youtube_comments(query, limit=50, time_range=None):
     """
     Cào bình luận từ các video YouTube liên quan tới chủ đề (YouTube Data API v3).
     Chỉ chạy nếu có YOUTUBE_API_KEY trong .env, nếu không thì bỏ qua êm.
@@ -123,6 +152,7 @@ def fetch_youtube_comments(query, limit=50):
     if not api_key:
         return []  # chưa cấu hình -> bỏ qua
 
+    yt_after = _time_filters(time_range)["yt_after"]
     texts = []
     try:
         print(f"[*] ⛏️ Đang cào bình luận từ YouTube cho: '{query}'...")
@@ -132,6 +162,8 @@ def fetch_youtube_comments(query, limit=50):
             f"?part=snippet&q={urllib.parse.quote(query)}"
             f"&type=video&maxResults=5&relevanceLanguage=vi&key={api_key}"
         )
+        if yt_after:
+            search_url += f"&publishedAfter={yt_after}"
         r = requests.get(search_url, timeout=20)
         r.raise_for_status()
         # Map videoId -> tiêu đề video để trích dẫn nguồn cho gọn.
@@ -221,7 +253,7 @@ def _get_reddit_token(force_refresh=False):
         return None
 
 
-def fetch_reddit(query, limit=50):
+def fetch_reddit(query, limit=50, time_range=None):
     """
     Cào bài đăng Reddit qua OAuth chính thức (oauth.reddit.com).
     Chỉ chạy nếu có REDDIT_CLIENT_ID + REDDIT_CLIENT_SECRET trong .env.
@@ -235,11 +267,12 @@ def fetch_reddit(query, limit=50):
     if not token:
         return []
 
+    reddit_t = _time_filters(time_range)["reddit_t"]
     texts = []
     ua = os.getenv("REDDIT_USER_AGENT", "python:sentiment_bot:v1.0")
     url = (
         "https://oauth.reddit.com/search"
-        f"?q={urllib.parse.quote(query)}&sort=hot&t=month&limit={limit}"
+        f"?q={urllib.parse.quote(query)}&sort=hot&t={reddit_t}&limit={limit}"
     )
     try:
         print(f"[*] ⛏️ Đang cào bài đăng từ Reddit (OAuth) cho: '{query}'...")
@@ -271,22 +304,25 @@ def fetch_reddit(query, limit=50):
     return texts
 
 
-def fetch_market_data(query, limit=50):
+def fetch_market_data(query, limit=50, time_range=None):
     """
     Tổng hợp ý kiến/tin tức từ nhiều nguồn để làm nguồn dữ liệu cho AI.
     Nguồn luôn bật: Hacker News + Google News (Anh + Việt).
     Nguồn tùy chọn (chỉ bật khi có credentials trong .env): YouTube, Reddit OAuth.
 
+    `time_range` (week/month/year/None) lọc dữ liệu theo độ mới ở từng nguồn.
     Các nguồn được gọi SONG SONG để giảm độ trễ, kèm deadline tổng
     (FETCH_TOTAL_TIMEOUT) để không treo request quá lâu.
     """
     # (tên nguồn, hàm chạy) — thứ tự này cũng là thứ tự ưu tiên khi gộp kết quả.
     sources = [
-        ("Hacker News", lambda: fetch_hackernews(query, limit)),
-        ("Google News (EN)", lambda: fetch_google_news(query, limit, lang="en", country="US")),
-        ("Google News (VI)", lambda: fetch_google_news(query, limit, lang="vi", country="VN")),
-        ("YouTube", lambda: fetch_youtube_comments(query, limit)),  # tự bỏ qua nếu chưa có key
-        ("Reddit", lambda: fetch_reddit(query, limit)),             # tự bỏ qua nếu chưa có key
+        ("Hacker News", lambda: fetch_hackernews(query, limit, time_range)),
+        ("Google News (EN)",
+         lambda: fetch_google_news(query, limit, lang="en", country="US", time_range=time_range)),
+        ("Google News (VI)",
+         lambda: fetch_google_news(query, limit, lang="vi", country="VN", time_range=time_range)),
+        ("YouTube", lambda: fetch_youtube_comments(query, limit, time_range)),  # bỏ qua nếu chưa có key
+        ("Reddit", lambda: fetch_reddit(query, limit, time_range)),             # bỏ qua nếu chưa có key
     ]
 
     results_by_source = {}

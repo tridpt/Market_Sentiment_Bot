@@ -106,7 +106,42 @@ Không điền cũng không sao — app tự bỏ qua nguồn chưa cấu hình.
 
 ---
 
-## 6. Xử lý sự cố
+## 6. Lọc theo khoảng thời gian
+
+Có thể chỉ lấy dữ liệu trong một khoảng gần đây để đo dư luận theo độ mới:
+
+- **Web:** chọn ô "Mọi thời điểm / 7 ngày / 30 ngày / 1 năm" cạnh nút Phân tích.
+- **API:** truyền `time_range` (`"week"`, `"month"`, `"year"`, hoặc `None`) vào
+  `run_analysis()` / `run_comparison()`.
+
+Cơ chế: Hacker News lọc theo `created_at`, Google News dùng toán tử `when:`, Reddit dùng tham số
+`t`, YouTube dùng `publishedAfter`. Giá trị không hợp lệ được coi như không lọc.
+
+---
+
+## 7. Quét định kỳ (`scheduler.py`)
+
+Tự động phân tích một danh sách chủ đề theo lịch để tích lũy dữ liệu xu hướng (và tùy chọn gửi
+tóm tắt qua Telegram).
+
+```bash
+python scheduler.py
+```
+
+Cấu hình trong `.env`:
+```
+SCHEDULED_TOPICS="iPhone 15, VinFast, Tesla"   # danh sách chủ đề, cách nhau dấu phẩy
+SCAN_INTERVAL_HOURS="24"                         # chu kỳ quét (giờ)
+SCAN_TIME_RANGE="week"                           # lọc độ mới (bỏ trống = không lọc)
+SCHEDULED_CHAT_ID="123456789"                    # (tùy chọn) nơi nhận tóm tắt Telegram
+```
+
+Mỗi lượt quét dùng `use_cache=False` để luôn lấy dữ liệu mới, và lưu lịch sử — nhờ đó `/trend`
+tích lũy đủ điểm dữ liệu theo thời gian.
+
+---
+
+## 8. Xử lý sự cố
 
 | Triệu chứng | Nguyên nhân & cách xử lý |
 |---|---|
@@ -119,7 +154,7 @@ Không điền cũng không sao — app tự bỏ qua nguồn chưa cấu hình.
 
 ---
 
-## 7. Mẹo
+## 9. Mẹo
 
 - **Tiết kiệm quota Gemini:** cache giữ kết quả 10 phút. Quét lại cùng chủ đề trong khoảng này không tốn thêm lần gọi API.
 - **Đo xu hướng:** quét cùng một chủ đề định kỳ (vd mỗi tuần) để `/trend` vẽ được đường biến động.
