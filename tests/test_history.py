@@ -1,5 +1,4 @@
 """Test cho history.py - lưu/đọc lịch sử phân tích."""
-import importlib
 
 import history as history_mod
 

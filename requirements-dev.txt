@@ -3,5 +3,8 @@
 
 -r requirements.txt
 
-pytest>=8.0.0          # chạy unit test
-playwright>=1.40.0     # chụp ảnh giao diện Web cho README (make_web_screenshot.py)
+pytest==9.1.0          # chạy unit test
+pytest-asyncio==1.4.0  # test cho code async (bot handlers)
+pytest-mock==3.15.1    # tiện ích mock
+ruff==0.15.14          # lint + format check
+playwright==1.60.0     # chụp ảnh giao diện Web cho README (make_web_screenshot.py)

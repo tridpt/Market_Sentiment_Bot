@@ -15,7 +15,6 @@ for _s in (sys.stdout, sys.stderr):
         pass
 
 import webapp
-import charts
 
 ASSETS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
 os.makedirs(ASSETS, exist_ok=True)

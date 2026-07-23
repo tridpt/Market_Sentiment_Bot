@@ -74,7 +74,7 @@ def format_telegram(topic, result):
     out = []
     out.append(f"📊 <b>BÁO CÁO CẢM XÚC: {topic.upper()}</b>")
     out.append(f"\n<b>Thái độ tổng quan:</b> {result.get('tong_quan', 'Không rõ')}")
-    out.append(f"\n<b>Tỷ lệ dư luận:</b>")
+    out.append("\n<b>Tỷ lệ dư luận:</b>")
     out.append(f"✅ Tích cực: {tc}%")
     out.append(f"❌ Tiêu cực: {tieu}%")
     out.append(f"⚪ Trung lập: {tl}%")

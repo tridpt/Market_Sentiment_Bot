@@ -1,0 +1,21 @@
+# Cấu hình Ruff cho Market Sentiment Bot.
+# Chạy: python -m ruff check .
+line-length = 120
+target-version = "py311"
+
+[lint]
+# Bộ rule mặc định của Ruff (E4/E7/E9 + F). Đủ để bắt lỗi thật mà không quá ồn.
+select = ["E", "F", "W"]
+ignore = [
+    "E501",  # độ dài dòng: để formatter/độ dài tự nhiên lo, không chặn CI
+]
+
+[lint.per-file-ignores]
+# Các entry point phải ép lại encoding stdout TRƯỚC khi import (an toàn cho Windows),
+# nên import không nằm ở đầu file là cố ý -> bỏ qua E402.
+"bot.py" = ["E402"]
+"main.py" = ["E402"]
+"make_demo_assets.py" = ["E402"]
+"make_web_screenshot.py" = ["E402"]
+# Test dùng lambda (t, l) / (q, l=50) để mô phỏng chữ ký hàm thật (l = limit).
+"tests/*" = ["E741"]

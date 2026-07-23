@@ -100,7 +100,7 @@ def analyze_sentiment(topic, text_data_list):
 
     # Gom các bình luận thành 1 cục text bự, đánh số thứ tự cho AI dễ đọc
     combined_text = "\n".join([f"{i+1}. {text}" for i, text in enumerate(text_data_list)])
-    
+
     if len(combined_text) > 30000:
         print("[!] Dữ liệu quá lớn, đang cắt bớt để tập trung phân tích các kết quả hot nhất...")
         combined_text = combined_text[:30000]
@@ -178,7 +178,7 @@ NHIỆM VỤ CỦA BẠN:
             err_msg = str(e)
             # Nếu máy chủ quá tải (503) hoặc quá giới hạn (429), ta tự động chờ và chạy lại
             if "503" in err_msg or "UNAVAILABLE" in err_msg or "429" in err_msg:
-                print(f"   [!] Máy chủ Google đang kẹt xe (Quá tải). Đang tạm nghỉ 5 giây rồi thử lại...")
+                print("   [!] Máy chủ Google đang kẹt xe (Quá tải). Đang tạm nghỉ 5 giây rồi thử lại...")
                 time.sleep(5)
                 continue
 

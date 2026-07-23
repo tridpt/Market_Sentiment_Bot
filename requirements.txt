@@ -1,6 +1,8 @@
-google-genai>=1.0.0
-python-dotenv>=1.0.0
-requests>=2.30.0
-python-telegram-bot>=22.0
-matplotlib>=3.8.0
-flask>=3.0.0
+# Phụ thuộc runtime. Pin theo phiên bản đã kiểm thử để build tái lập được.
+# Cập nhật có chủ đích rồi chạy lại test/CI trước khi nâng.
+google-genai==2.8.0
+python-dotenv==1.2.2
+requests==2.34.2
+python-telegram-bot==21.6
+matplotlib==3.10.0
+flask==3.1.3

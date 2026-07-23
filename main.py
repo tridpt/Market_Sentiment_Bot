@@ -50,7 +50,7 @@ def main():
         run_compare_cli(parsed)
         return
 
-    print(f"\n[BƯỚC 1] BẮT ĐẦU ĐÀO DỮ LIỆU TỪ TIN TỨC & DIỄN ĐÀN (Hacker News + Google News)...")
+    print("\n[BƯỚC 1] BẮT ĐẦU ĐÀO DỮ LIỆU TỪ TIN TỨC & DIỄN ĐÀN (Hacker News + Google News)...")
     print("[BƯỚC 2] TRUYỀN DỮ LIỆU CHO BỘ NÃO MÁY GEMINI...\n")
 
     res = run_analysis(topic, limit=50)

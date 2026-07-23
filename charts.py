@@ -5,7 +5,6 @@ from datetime import datetime
 import matplotlib
 matplotlib.use("Agg")  # backend không cần màn hình, an toàn cho bot/server
 import matplotlib.pyplot as plt
-from matplotlib import font_manager
 
 CHARTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports", "charts")
 
@@ -32,7 +31,7 @@ def make_pie_chart(topic, result):
     colors = ["#2ecc71", "#e74c3c", "#95a5a6"]
 
     # Lọc bỏ phần 0% để biểu đồ gọn
-    filtered = [(l, s, c) for l, s, c in zip(labels, sizes, colors) if s > 0]
+    filtered = [(lbl, s, c) for lbl, s, c in zip(labels, sizes, colors) if s > 0]
     if not filtered:
         filtered = [("Không có dữ liệu", 1, "#bdc3c7")]
     labels, sizes, colors = zip(*filtered)
