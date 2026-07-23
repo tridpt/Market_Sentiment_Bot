@@ -72,3 +72,41 @@ def test_save_report_json(tmp_path, monkeypatch):
         data = json.load(f)
     assert data["topic"] == "My Topic"
     assert data["result"]["phan_tram_tich_cuc"] == 40
+
+
+# ---------- trích nguồn trong báo cáo ----------
+
+SAMPLE_WITH_SOURCES = {
+    **SAMPLE,
+    "_sources": [
+        {"title": "Bài A", "url": "https://a.com/1", "source": "Hacker News"},
+        {"title": "Bài B", "url": "https://b.com/2", "source": "Google News"},
+    ],
+}
+
+
+def test_format_text_includes_sources():
+    out = reporter.format_text("iPhone", SAMPLE_WITH_SOURCES)
+    assert "NGUỒN THAM KHẢO" in out
+    assert "https://a.com/1" in out
+    assert "Bài A" in out
+
+
+def test_format_markdown_includes_source_links():
+    md = reporter.format_markdown("iPhone", SAMPLE_WITH_SOURCES)
+    assert "Nguồn tham khảo" in md
+    assert "[Bài A](https://a.com/1)" in md
+
+
+def test_format_telegram_escapes_sources():
+    risky = {**SAMPLE, "_sources": [{"title": "A & B <x>", "url": "https://a.com?x=1&y=2"}]}
+    out = reporter.format_telegram("iPhone", risky)
+    assert "Nguồn tham khảo" in out
+    assert "<a href=" in out
+    assert "&amp;" in out  # ký tự & được escape để không vỡ HTML Telegram
+
+
+def test_no_sources_section_when_absent():
+    # SAMPLE gốc không có _sources -> không hiện mục nguồn
+    assert "NGUỒN THAM KHẢO" not in reporter.format_text("iPhone", SAMPLE)
+    assert "Nguồn tham khảo" not in reporter.format_markdown("iPhone", SAMPLE)

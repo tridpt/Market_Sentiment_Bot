@@ -117,3 +117,52 @@ def test_save_history_called(monkeypatch):
     _patch(monkeypatch, save_spy=fake_save)
     engine.run_analysis("iPhone", save_history=True)
     assert spy["called"] == 1
+
+
+# ---------- trích nguồn (sources) ----------
+
+def test_sources_extracted_and_attached(monkeypatch):
+    data = [
+        {"text": "tin 1", "url": "https://a.com/1", "title": "Bài 1", "source": "Hacker News"},
+        {"text": "tin 2", "url": "https://b.com/2", "title": "Bài 2", "source": "Google News"},
+        {"text": "tin 3", "url": None, "title": "x", "source": "Reddit"},  # thiếu url -> bỏ
+    ]
+    monkeypatch.setattr(engine, "fetch_market_data", lambda topic, limit=50: data)
+    monkeypatch.setattr(engine, "analyze_sentiment", lambda topic, texts: dict(SAMPLE_RESULT))
+    monkeypatch.setattr(engine.history, "save_record", lambda *a, **k: None)
+
+    res = engine.run_analysis("iPhone", save_history=False, use_cache=False)
+    assert res["ok"] is True
+    assert len(res["sources"]) == 2
+    assert res["sources"][0]["url"] == "https://a.com/1"
+    # Nguồn cũng được đính vào result cho reporter dùng
+    assert res["result"]["_sources"] == res["sources"]
+
+
+def test_analyze_receives_plain_text_not_dicts(monkeypatch):
+    captured = {}
+    data = [{"text": "hello world data dai hon 20 ky tu", "url": "u", "title": "t", "source": "s"}]
+    monkeypatch.setattr(engine, "fetch_market_data", lambda topic, limit=50: data)
+
+    def fake_analyze(topic, texts):
+        captured["texts"] = texts
+        return dict(SAMPLE_RESULT)
+
+    monkeypatch.setattr(engine, "analyze_sentiment", fake_analyze)
+    monkeypatch.setattr(engine.history, "save_record", lambda *a, **k: None)
+
+    engine.run_analysis("x", save_history=False, use_cache=False)
+    assert captured["texts"] == ["hello world data dai hon 20 ky tu"]
+
+
+def test_sources_deduped_by_url(monkeypatch):
+    data = [
+        {"text": "a", "url": "https://same.com", "title": "A", "source": "HN"},
+        {"text": "b", "url": "https://same.com", "title": "B", "source": "GN"},  # trùng url
+    ]
+    monkeypatch.setattr(engine, "fetch_market_data", lambda topic, limit=50: data)
+    monkeypatch.setattr(engine, "analyze_sentiment", lambda topic, texts: dict(SAMPLE_RESULT))
+    monkeypatch.setattr(engine.history, "save_record", lambda *a, **k: None)
+
+    res = engine.run_analysis("t", save_history=False, use_cache=False)
+    assert len(res["sources"]) == 1

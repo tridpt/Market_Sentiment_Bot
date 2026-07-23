@@ -12,6 +12,34 @@ import history
 CACHE_TTL = 600  # 10 phút
 _cache = {}  # { "topic_lower": {"ts": float, "data": dict} }
 
+# Số nguồn tối đa đính kèm báo cáo (trích dẫn link bài viết gốc).
+MAX_SOURCES = 10
+
+
+def _extract_sources(data_list):
+    """Rút danh sách nguồn {title, url, source} từ dữ liệu cào được.
+
+    Bỏ qua item không phải dict hoặc không có url (vd khi test mock trả về list str).
+    Khử trùng lặp theo url, giữ thứ tự, giới hạn MAX_SOURCES.
+    """
+    seen = set()
+    sources = []
+    for item in data_list:
+        if not isinstance(item, dict):
+            continue
+        url = item.get("url")
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        sources.append({
+            "title": item.get("title") or item.get("source") or "Nguồn",
+            "url": url,
+            "source": item.get("source"),
+        })
+        if len(sources) >= MAX_SOURCES:
+            break
+    return sources
+
 
 def clear_cache():
     """Xóa toàn bộ cache (hữu ích cho test hoặc khi muốn ép quét mới)."""
@@ -57,14 +85,21 @@ def run_analysis(topic, limit=50, save_history=True, use_cache=True):
         return {"ok": False, "error": "Không cào được dữ liệu nào cho chủ đề này.",
                 "result": None, "source_count": 0, "cached": False}
 
+    # Tách phần text cho AI (item có thể là dict {"text",...} hoặc str thuần)
+    texts = [item["text"] if isinstance(item, dict) else item for item in data_list]
+    sources = _extract_sources(data_list)
+
     # 3) Phân tích AI
-    result = analyze_sentiment(topic, data_list)
+    result = analyze_sentiment(topic, texts)
     if not result or "error" in result:
         return {"ok": False, "error": "AI phân tích thất bại (máy chủ lỗi hoặc quá tải).",
-                "result": None, "source_count": len(data_list), "cached": False}
+                "result": None, "source_count": len(texts), "cached": False}
+
+    # Đính danh sách nguồn vào result để reporter/web hiển thị trích dẫn.
+    result["_sources"] = sources
 
     outcome = {"ok": True, "error": None, "result": result,
-               "source_count": len(data_list)}
+               "source_count": len(texts), "sources": sources}
 
     # 4) Lưu lịch sử
     if save_history:

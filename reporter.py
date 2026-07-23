@@ -2,7 +2,11 @@
 import os
 import json
 import re
+import html
 from datetime import datetime
+
+# Số nguồn tối đa hiển thị trong tin nhắn Telegram (giữ tin gọn).
+TELEGRAM_MAX_SOURCES = 6
 
 REPORTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports")
 
@@ -37,6 +41,11 @@ def format_text(topic, result):
         lines.append(f"  {i+1}. {c}")
     lines.append("\n💡 KẾT LUẬN CỦA CHUYÊN GIA AI:")
     lines.append(f"  {result.get('ket_luan_ngan', '...')}")
+    sources = result.get("_sources") or []
+    if sources:
+        lines.append("\n🔗 NGUỒN THAM KHẢO:")
+        for i, s in enumerate(sources):
+            lines.append(f"  {i+1}. {s.get('title', 'Nguồn')} — {s.get('url', '')}")
     lines.append("=" * 60)
     return "\n".join(lines)
 
@@ -63,6 +72,13 @@ def format_markdown(topic, result):
         md.append(f"{i+1}. {c}")
     md.append("\n## 💡 Kết luận của chuyên gia AI\n")
     md.append(f"> {result.get('ket_luan_ngan', '...')}")
+    sources = result.get("_sources") or []
+    if sources:
+        md.append("\n## 🔗 Nguồn tham khảo\n")
+        for s in sources:
+            title = s.get("title", "Nguồn")
+            url = s.get("url", "")
+            md.append(f"- [{title}]({url})")
     return "\n".join(md)
 
 
@@ -85,6 +101,13 @@ def format_telegram(topic, result):
     for i, c in enumerate(result.get("top_3_che", [])):
         out.append(f"{i+1}. {c}")
     out.append(f"\n💡 <b>Kết luận:</b>\n{result.get('ket_luan_ngan', '...')}")
+    sources = result.get("_sources") or []
+    if sources:
+        out.append("\n🔗 <b>Nguồn tham khảo:</b>")
+        for i, s in enumerate(sources[:TELEGRAM_MAX_SOURCES]):
+            title = html.escape(str(s.get("title", "Nguồn")))
+            url = html.escape(str(s.get("url", "")), quote=True)
+            out.append(f'{i+1}. <a href="{url}">{title}</a>')
     return "\n".join(out)
 
 

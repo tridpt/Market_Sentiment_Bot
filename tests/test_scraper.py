@@ -42,3 +42,37 @@ def test_fetch_market_data_dedupes(monkeypatch):
     assert len(result) == 2
     assert "Apple is great" in result
     assert "New phone" in result
+
+
+def test_fetch_market_data_keeps_source_dicts(monkeypatch):
+    # Nguồn trả về dict {text,url,title,source}; trùng text bị khử, giữ nguyên dict
+    monkeypatch.setattr(scraper, "fetch_hackernews",
+                        lambda q, l=50: [{"text": "Apple good", "url": "https://hn/1",
+                                          "title": "A", "source": "Hacker News"}])
+    monkeypatch.setattr(scraper, "fetch_google_news",
+                        lambda q, l=50, lang="en", country="US": [
+                            {"text": "Apple good", "url": "https://g/1",  # trùng text -> bỏ
+                             "title": "B", "source": "Google News"},
+                            {"text": "Different news", "url": "https://g/2",
+                             "title": "C", "source": "Google News"}])
+    monkeypatch.setattr(scraper, "fetch_youtube_comments", lambda q, l=50: [])
+    monkeypatch.setattr(scraper, "fetch_reddit", lambda q, l=50: [])
+
+    result = scraper.fetch_market_data("Apple", limit=50)
+    assert len(result) == 2  # "Apple good" trùng -> còn 2
+    assert result[0]["url"] == "https://hn/1"
+    assert all(isinstance(it, dict) for it in result)
+
+
+def test_parse_rss_items_extracts_link():
+    xml = (
+        "<rss><channel>"
+        "<item><title>Tin A</title><description>Mô tả A</description>"
+        "<link>https://news/a</link></item>"
+        "<item><title>Tin B</title><description>Mô tả B</description>"
+        "<link>https://news/b</link></item>"
+        "</channel></rss>"
+    )
+    items = scraper._parse_rss_items(xml, limit=10)
+    assert items[0] == ("Tin A", "Mô tả A", "https://news/a")
+    assert items[1][2] == "https://news/b"

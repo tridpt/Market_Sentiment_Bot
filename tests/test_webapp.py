@@ -115,6 +115,21 @@ def test_compare_success(client, monkeypatch):
     assert "iPhone (70%)" in body  # iPhone tích cực hơn -> quán quân
 
 
+def test_single_topic_shows_sources(client, monkeypatch):
+    monkeypatch.setattr(webapp, "run_analysis",
+                        lambda topic, limit=50, save_history=True: {
+                            "ok": True, "result": SAMPLE, "source_count": 5,
+                            "error": None, "cached": False,
+                            "sources": [{"title": "Bài A", "url": "https://a.com/x",
+                                         "source": "Hacker News"}],
+                        })
+    resp = client.get("/", query_string={"topic": "iPhone"}, follow_redirects=True)
+    body = resp.get_data(as_text=True)
+    assert "Nguồn tham khảo" in body
+    assert "https://a.com/x" in body
+    assert "Bài A" in body
+
+
 def test_rate_limit_exceeded(client, monkeypatch):
     # Giới hạn chặt: 1 request / cửa sổ -> request thứ 2 bị chặn 429
     monkeypatch.setattr(webapp, "limiter", RateLimiter(max_requests=1, window=60))

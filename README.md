@@ -42,6 +42,7 @@ lại thành một báo cáo gọn — tỷ lệ tích cực/tiêu cực, top đ
 | 📈 **Biểu đồ** | Tròn (tỷ lệ sentiment), đường (xu hướng theo thời gian), cột (so sánh) |
 | 🕒 **Theo dõi xu hướng** | Lưu lịch sử để xem dư luận thay đổi qua thời gian |
 | 📄 **Xuất báo cáo** | Markdown + JSON có timestamp, lưu lại để đối chiếu |
+| 🔗 **Trích nguồn** | Báo cáo đính link bài viết/tin gốc (HN, Google News, YouTube, Reddit) để kiểm chứng |
 | ⚡ **Cache thông minh** | Quét lại cùng chủ đề trong 10 phút trả kết quả cũ — tiết kiệm quota Gemini |
 | 🌍 **Đa nguồn** | Hacker News + Google News (Anh & Việt); tùy chọn thêm YouTube + Reddit |
 
@@ -192,7 +193,7 @@ Market_Sentiment_Bot/
 ├── jobs.py           # Hàng đợi job chạy nền cho Web
 ├── ratelimit.py      # Rate limiter theo IP cho Web
 ├── main.py           # CLI
-├── tests/            # 71 unit test (pytest)
+├── tests/            # 81 unit test (pytest)
 ├── docs/             # Tài liệu kỹ thuật
 ├── requirements.txt        # Phụ thuộc để chạy app
 ├── requirements-dev.txt    # Phụ thuộc dev/test (pytest, playwright)
@@ -212,7 +213,7 @@ Tài liệu kỹ thuật chi tiết nằm trong thư mục [`docs/`](docs/):
 
 ## 🗺️ Hướng phát triển
 
-- [ ] Trích nguồn (đính link bài viết gốc trong báo cáo)
+- [x] Trích nguồn (đính link bài viết gốc trong báo cáo)
 - [ ] Lọc theo khoảng thời gian (1 tuần / 1 tháng / 1 năm)
 - [ ] Deploy 24/7 (Railway / Render) để bot luôn online
 - [ ] Bot tự quét theo lịch và gửi báo cáo xu hướng định kỳ

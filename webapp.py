@@ -66,6 +66,11 @@ PAGE = """
     h3 { margin:18px 0 8px; font-size:16px; }
     ul { margin:0; padding-left:20px; line-height:1.7; }
     .concl { font-style:italic; color:#c8cdf0; border-left:3px solid #5468ff; padding-left:14px; margin-top:10px; }
+    .sources { margin-top:8px; font-size:13px; }
+    .sources li { margin-bottom:4px; }
+    .sources a { color:#8fa8ff; text-decoration:none; word-break:break-all; }
+    .sources a:hover { text-decoration:underline; }
+    .src-tag { color:#7f86ad; font-size:11px; }
     .err { background:#3a1a25; border:1px solid #e74c3c; color:#ffb3c0; padding:14px; border-radius:10px; }
     img.chart { max-width:100%; border-radius:12px; margin-top:16px; background:#fff; }
     .loading { color:#9aa0c0; }
@@ -112,6 +117,16 @@ PAGE = """
         <h3>💡 Kết luận của chuyên gia AI</h3>
         <div class="concl">{{ result.ket_luan_ngan }}</div>
 
+        {% if sources %}
+          <h3>🔗 Nguồn tham khảo</h3>
+          <ul class="sources">
+            {% for s in sources %}
+              <li><a href="{{ s.url }}" target="_blank" rel="noopener noreferrer">{{ s.title }}</a>
+                {% if s.source %}<span class="src-tag">({{ s.source }})</span>{% endif %}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
         {% if pie_url %}<img class="chart" src="{{ pie_url }}" alt="Biểu đồ tròn">{% endif %}
         {% if trend_url %}<img class="chart" src="{{ trend_url }}" alt="Biểu đồ xu hướng">{% endif %}
       </div>
@@ -152,7 +167,7 @@ def _render(**kwargs):
     defaults = dict(topic=None, result=None, error=None, source_count=0,
                     pie_url=None, trend_url=None, compare_items=None,
                     compare_topics=None, compare_winner=None, compare_url=None,
-                    loading=False)
+                    loading=False, sources=None)
     defaults.update(kwargs)
     return render_template_string(PAGE, **defaults)
 
@@ -182,6 +197,7 @@ def _analyze_job(topic):
 
     return {"kind": "single", "topic": topic, "error": None, "result": result,
             "source_count": outcome["source_count"],
+            "sources": outcome.get("sources", []),
             "pie_url": pie_url, "trend_url": trend_url}
 
 
@@ -268,7 +284,7 @@ def result(job_id):
                        compare_winner=payload["winner"], compare_url=payload["compare_url"])
 
     return _render(topic=payload["topic"], result=payload["result"],
-                   source_count=payload["source_count"],
+                   source_count=payload["source_count"], sources=payload.get("sources", []),
                    pie_url=payload["pie_url"], trend_url=payload["trend_url"])
 
 

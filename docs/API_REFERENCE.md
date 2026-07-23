@@ -24,8 +24,11 @@ Chạy toàn bộ pipeline cho **một** chủ đề.
     "result": dict | None, # JSON sentiment (xem cấu trúc bên dưới)
     "source_count": int,   # số đoạn dữ liệu đã phân tích
     "cached": bool,        # kết quả lấy từ cache hay quét mới
+    "sources": list[dict], # nguồn trích dẫn: [{title, url, source}], tối đa MAX_SOURCES
 }
 ```
+
+> Danh sách `sources` cũng được đính vào `result["_sources"]` để `reporter`/Web hiển thị trích dẫn link bài gốc.
 
 **Ví dụ:**
 ```python
@@ -61,7 +64,9 @@ Xóa toàn bộ cache trong bộ nhớ. Hữu ích cho test hoặc khi muốn é
 ## `scraper.py` — Cào dữ liệu
 
 ### `fetch_market_data(query, limit=50)`
-Hàm tổng hợp — gọi tất cả nguồn, khử trùng lặp, trả về list các đoạn text.
+Hàm tổng hợp — gọi tất cả nguồn (song song, có deadline), khử trùng lặp theo nội dung.
+Trả về list các dict `{"text", "url", "title", "source"}` (`text` là nội dung cho AI, còn lại
+dùng để trích dẫn nguồn). Vẫn chấp nhận item dạng `str` thuần để tương thích ngược.
 
 ### `fetch_hackernews(query, limit=50)`
 Cào tiêu đề story + bình luận từ Hacker News (Algolia API). Luôn bật.
