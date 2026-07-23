@@ -11,6 +11,10 @@ import charts
 app = Flask(__name__)
 REPORTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports")
 
+# Giới hạn để tránh lạm dụng: một request không thể kích hoạt quá nhiều pipeline tốn phí.
+MAX_TOPIC_LEN = 200   # độ dài tối đa của ô nhập
+MAX_COMPARE_TOPICS = 4  # số chủ đề tối đa cho một lần so sánh
+
 PAGE = """
 <!doctype html>
 <html lang="vi">
@@ -129,6 +133,11 @@ def index():
     if not topic:
         return _render()
 
+    # Chặn input quá dài (tránh nhồi prompt / lạm dụng)
+    if len(topic) > MAX_TOPIC_LEN:
+        return _render(topic=topic[:MAX_TOPIC_LEN],
+                       error=f"Chủ đề quá dài (tối đa {MAX_TOPIC_LEN} ký tự).")
+
     # Nếu nhập nhiều chủ đề (vs / phẩy) -> chế độ so sánh
     if len(parse_topics(topic)) >= 2:
         return _compare_view(topic)
@@ -161,6 +170,10 @@ def index():
 def _compare_view(topic):
     """Xử lý chế độ so sánh nhiều chủ đề cho web."""
     topics = parse_topics(topic)
+    if len(topics) > MAX_COMPARE_TOPICS:
+        return _render(topic=topic,
+                       error=f"Chỉ so sánh tối đa {MAX_COMPARE_TOPICS} chủ đề mỗi lần "
+                             f"(bạn nhập {len(topics)}).")
     outcome = run_comparison(topics, limit=50, save_history=True)
     if not outcome["ok"]:
         return _render(topic=topic, error=outcome["error"])

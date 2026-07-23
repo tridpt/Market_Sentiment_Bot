@@ -35,18 +35,30 @@ import history
 
 load_dotenv()
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-ALLOWED_USER_ID = os.getenv("ALLOWED_USER_ID")
+
+
+def _parse_allowed_ids(raw):
+    """Đọc danh sách user_id được phép từ .env. Hỗ trợ nhiều id, phân tách bằng dấu phẩy."""
+    if not raw:
+        return set()
+    return {part.strip() for part in raw.split(",") if part.strip()}
+
+
+ALLOWED_USER_IDS = _parse_allowed_ids(os.getenv("ALLOWED_USER_ID"))
 
 if not TOKEN:
     raise ValueError("Chưa có TELEGRAM_BOT_TOKEN trong .env")
 
 
 def _is_allowed(update: Update) -> bool:
-    """Chỉ cho phép user_id được cấu hình trong .env (nếu có cấu hình)."""
-    if not ALLOWED_USER_ID:
-        return True  # không giới hạn nếu chưa cấu hình
+    """Chỉ cho phép các user_id được cấu hình trong .env (nếu có cấu hình).
+
+    Nếu không cấu hình allow-list, bot mở cho tất cả — chỉ nên dùng khi chạy thử.
+    """
+    if not ALLOWED_USER_IDS:
+        return True  # không giới hạn nếu chưa cấu hình (đã cảnh báo lúc khởi động)
     user = update.effective_user
-    return user is not None and str(user.id) == str(ALLOWED_USER_ID)
+    return user is not None and str(user.id) in ALLOWED_USER_IDS
 
 
 async def _deny(update: Update):
@@ -178,6 +190,17 @@ def main():
     app.add_handler(CommandHandler("trend", trend_cmd))
     app.add_handler(CommandHandler("compare", compare_cmd))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, analyze_msg))
+
+    if not ALLOWED_USER_IDS:
+        print("=" * 70)
+        print("⚠️  CẢNH BÁO: Chưa cấu hình ALLOWED_USER_ID.")
+        print("    Bot đang MỞ CHO TẤT CẢ mọi người biết username của bot.")
+        print("    Bất kỳ ai cũng có thể tiêu quota Gemini/YouTube/Reddit của bạn.")
+        print("    Hãy đặt ALLOWED_USER_ID trong .env (có thể nhiều id, cách nhau dấu phẩy)")
+        print("    trước khi công khai bot.")
+        print("=" * 70)
+    else:
+        print(f"🔒 Bot giới hạn cho {len(ALLOWED_USER_IDS)} user_id được cấp phép.")
 
     print("🤖 Bot đang chạy... (Ctrl+C để dừng)")
     app.run_polling(allowed_updates=Update.ALL_TYPES)

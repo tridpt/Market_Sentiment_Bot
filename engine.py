@@ -18,16 +18,21 @@ def clear_cache():
     _cache.clear()
 
 
-def _cache_get(topic):
+def _cache_key(topic, limit):
+    """Cache key gồm cả topic lẫn limit vì limit khác nhau -> dữ liệu khác nhau."""
+    return (topic.strip().lower(), int(limit))
+
+
+def _cache_get(topic, limit):
     """Trả về kết quả còn hạn trong cache, hoặc None nếu hết hạn/không có."""
-    entry = _cache.get(topic.strip().lower())
+    entry = _cache.get(_cache_key(topic, limit))
     if entry and (time.time() - entry["ts"]) < CACHE_TTL:
         return entry["data"]
     return None
 
 
-def _cache_set(topic, data):
-    _cache[topic.strip().lower()] = {"ts": time.time(), "data": data}
+def _cache_set(topic, limit, data):
+    _cache[_cache_key(topic, limit)] = {"ts": time.time(), "data": data}
 
 
 def run_analysis(topic, limit=50, save_history=True, use_cache=True):
@@ -42,7 +47,7 @@ def run_analysis(topic, limit=50, save_history=True, use_cache=True):
 
     # 1) Thử lấy từ cache trước
     if use_cache:
-        cached = _cache_get(topic)
+        cached = _cache_get(topic, limit)
         if cached is not None:
             return {**cached, "cached": True}
 
@@ -65,12 +70,13 @@ def run_analysis(topic, limit=50, save_history=True, use_cache=True):
     if save_history:
         try:
             history.save_record(topic, result, source_count=len(data_list))
-        except Exception:
-            pass  # lưu lịch sử lỗi không nên làm hỏng cả pipeline
+        except Exception as e:
+            # Lưu lịch sử lỗi không nên làm hỏng cả pipeline, nhưng phải log để còn biết.
+            print(f"[!] ⚠️ Không lưu được lịch sử cho '{topic}': {e}")
 
     # 5) Lưu cache
     if use_cache:
-        _cache_set(topic, outcome)
+        _cache_set(topic, limit, outcome)
 
     return {**outcome, "cached": False}
 
@@ -85,6 +91,10 @@ def parse_topics(text):
         return []
     parts = re.split(r"\s+vs\.?\s+|\s+versus\s+|\s+với\s+|,", text, flags=re.IGNORECASE)
     return [p.strip() for p in parts if p.strip()]
+
+
+# Số chủ đề tối đa cho một lần so sánh (tránh một yêu cầu chạy quá nhiều pipeline tốn phí).
+MAX_COMPARE_TOPICS = 4
 
 
 def run_comparison(topics, limit=50, save_history=True, use_cache=True):
@@ -106,6 +116,12 @@ def run_comparison(topics, limit=50, save_history=True, use_cache=True):
 
     if len(clean_topics) < 2:
         return {"ok": False, "error": "Cần ít nhất 2 chủ đề để so sánh (VD: 'iPhone vs Samsung').",
+                "items": []}
+
+    if len(clean_topics) > MAX_COMPARE_TOPICS:
+        return {"ok": False,
+                "error": f"Chỉ so sánh tối đa {MAX_COMPARE_TOPICS} chủ đề mỗi lần "
+                         f"(bạn nhập {len(clean_topics)}).",
                 "items": []}
 
     items = []
