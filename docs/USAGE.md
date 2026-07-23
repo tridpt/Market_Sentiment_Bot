@@ -78,7 +78,9 @@ Mở trình duyệt: http://127.0.0.1:5000
 - Gõ `iPhone vs Samsung` để vào chế độ so sánh.
 - Báo cáo hiển thị kèm thanh tỷ lệ và biểu đồ.
 
-> Trang sẽ "loading" 15–30 giây mỗi lần phân tích vì phải cào nhiều nguồn rồi gọi Gemini. Đây là bình thường.
+> Mỗi lần phân tích được chạy như một **job nền**: trang chuyển sang màn hình "đang xử lý" và **tự refresh** cho tới khi có kết quả (thường 15–30 giây vì phải cào nhiều nguồn rồi gọi Gemini). Có thể poll trạng thái qua `GET /api/status/<job_id>`.
+
+**Chống lạm dụng:** Web giới hạn số lần tạo job trên mỗi IP (mặc định 10 lần / 60 giây) và tối đa 4 chủ đề mỗi lần so sánh. Tinh chỉnh qua các biến `WEB_RATE_MAX`, `WEB_RATE_WINDOW`, `WEB_JOB_WORKERS` trong `.env`.
 
 ---
 

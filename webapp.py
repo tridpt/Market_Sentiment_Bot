@@ -2,9 +2,12 @@
 Chạy: python webapp.py  -> mở http://127.0.0.1:5000
 """
 import os
-from flask import Flask, request, render_template_string, send_from_directory
+from flask import (Flask, request, render_template_string, send_from_directory,
+                   redirect, url_for, jsonify)
 
 from engine import run_analysis, run_comparison, parse_topics
+from jobs import JobManager
+from ratelimit import RateLimiter
 import history
 import charts
 
@@ -15,12 +18,32 @@ REPORTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports"
 MAX_TOPIC_LEN = 200   # độ dài tối đa của ô nhập
 MAX_COMPARE_TOPICS = 4  # số chủ đề tối đa cho một lần so sánh
 
+# Hàng đợi job nền: request chỉ tạo job rồi trả ngay, không bị khóa khi cào + gọi AI.
+job_manager = JobManager(
+    max_workers=int(os.getenv("WEB_JOB_WORKERS", "2")),
+    ttl=int(os.getenv("WEB_JOB_TTL", "1800")),
+)
+# Rate limit theo IP để chặn spam các job tốn phí.
+limiter = RateLimiter(
+    max_requests=int(os.getenv("WEB_RATE_MAX", "10")),
+    window=int(os.getenv("WEB_RATE_WINDOW", "60")),
+)
+
+
+def _client_ip():
+    """Lấy IP client, ưu tiên X-Forwarded-For khi chạy sau reverse proxy."""
+    xff = request.headers.get("X-Forwarded-For", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.remote_addr or "unknown"
+
 PAGE = """
 <!doctype html>
 <html lang="vi">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% if loading %}<meta http-equiv="refresh" content="2">{% endif %}
   <title>Market Sentiment Bot</title>
   <style>
     * { box-sizing: border-box; }
@@ -59,6 +82,12 @@ PAGE = """
 
     {% if error %}
       <div class="err">⚠️ {{ error }}</div>
+    {% endif %}
+
+    {% if loading %}
+      <div class="card">
+        <div class="loading">⏳ Đang cào dữ liệu &amp; phân tích... Trang sẽ tự cập nhật sau vài giây.</div>
+      </div>
     {% endif %}
 
     {% if result %}
@@ -122,61 +151,47 @@ def _render(**kwargs):
     """Render trang với mặc định an toàn cho mọi biến template."""
     defaults = dict(topic=None, result=None, error=None, source_count=0,
                     pie_url=None, trend_url=None, compare_items=None,
-                    compare_topics=None, compare_winner=None, compare_url=None)
+                    compare_topics=None, compare_winner=None, compare_url=None,
+                    loading=False)
     defaults.update(kwargs)
     return render_template_string(PAGE, **defaults)
 
 
-@app.route("/")
-def index():
-    topic = request.args.get("topic", "").strip()
-    if not topic:
-        return _render()
+# ===================== Job workers (chạy nền) =====================
 
-    # Chặn input quá dài (tránh nhồi prompt / lạm dụng)
-    if len(topic) > MAX_TOPIC_LEN:
-        return _render(topic=topic[:MAX_TOPIC_LEN],
-                       error=f"Chủ đề quá dài (tối đa {MAX_TOPIC_LEN} ký tự).")
-
-    # Nếu nhập nhiều chủ đề (vs / phẩy) -> chế độ so sánh
-    if len(parse_topics(topic)) >= 2:
-        return _compare_view(topic)
-
+def _analyze_job(topic):
+    """Worker: phân tích 1 chủ đề + sinh biểu đồ. Trả payload để render."""
     outcome = run_analysis(topic, limit=50, save_history=True)
     if not outcome["ok"]:
-        return _render(topic=topic, error=outcome["error"])
+        return {"kind": "single", "topic": topic, "error": outcome["error"]}
 
     result = outcome["result"]
-    # Tạo biểu đồ
     pie_url = trend_url = None
     try:
         pie_path = charts.make_pie_chart(topic, result)
         pie_url = "/charts/" + os.path.basename(pie_path)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[!] ⚠️ Không vẽ được biểu đồ tròn cho '{topic}': {e}")
     try:
         recs = history.get_history_for_topic(topic)
         trend_path = charts.make_trend_chart(topic, recs)
         if trend_path:
             trend_url = "/charts/" + os.path.basename(trend_path)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[!] ⚠️ Không vẽ được biểu đồ xu hướng cho '{topic}': {e}")
 
-    return _render(topic=topic, result=result,
-                   source_count=outcome["source_count"],
-                   pie_url=pie_url, trend_url=trend_url)
+    return {"kind": "single", "topic": topic, "error": None, "result": result,
+            "source_count": outcome["source_count"],
+            "pie_url": pie_url, "trend_url": trend_url}
 
 
-def _compare_view(topic):
-    """Xử lý chế độ so sánh nhiều chủ đề cho web."""
+def _compare_job(topic):
+    """Worker: so sánh nhiều chủ đề + sinh biểu đồ cột. Trả payload để render."""
     topics = parse_topics(topic)
-    if len(topics) > MAX_COMPARE_TOPICS:
-        return _render(topic=topic,
-                       error=f"Chỉ so sánh tối đa {MAX_COMPARE_TOPICS} chủ đề mỗi lần "
-                             f"(bạn nhập {len(topics)}).")
     outcome = run_comparison(topics, limit=50, save_history=True)
+    topics_str = ", ".join(topics)
     if not outcome["ok"]:
-        return _render(topic=topic, error=outcome["error"])
+        return {"kind": "compare", "topics_str": topics_str, "error": outcome["error"]}
 
     items = outcome["items"]
     ok_items = [it for it in items if it.get("ok")]
@@ -190,12 +205,80 @@ def _compare_view(topic):
         chart_path = charts.make_comparison_chart(items)
         if chart_path:
             compare_url = "/charts/" + os.path.basename(chart_path)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[!] ⚠️ Không vẽ được biểu đồ so sánh: {e}")
 
-    return _render(topic=topic, compare_items=items,
-                   compare_topics=", ".join(topics),
-                   compare_winner=winner, compare_url=compare_url)
+    return {"kind": "compare", "topics_str": topics_str, "error": None,
+            "items": items, "winner": winner, "compare_url": compare_url}
+
+
+# ===================== Routes =====================
+
+@app.route("/", methods=["GET", "POST"])
+def index():
+    # Chấp nhận cả GET (?topic=) lẫn POST (form) để tiện bookmark và submit.
+    topic = (request.values.get("topic") or "").strip()
+    if not topic:
+        return _render()
+
+    # Chặn input quá dài (tránh nhồi prompt / lạm dụng)
+    if len(topic) > MAX_TOPIC_LEN:
+        return _render(topic=topic[:MAX_TOPIC_LEN],
+                       error=f"Chủ đề quá dài (tối đa {MAX_TOPIC_LEN} ký tự).")
+
+    topics = parse_topics(topic)
+    if len(topics) > MAX_COMPARE_TOPICS:
+        return _render(topic=topic,
+                       error=f"Chỉ so sánh tối đa {MAX_COMPARE_TOPICS} chủ đề mỗi lần "
+                             f"(bạn nhập {len(topics)}).")
+
+    # Rate limit trước khi tạo job tốn phí
+    ip = _client_ip()
+    if not limiter.allow(ip):
+        wait = limiter.retry_after(ip)
+        return _render(topic=topic,
+                       error=f"Bạn thao tác quá nhanh. Vui lòng thử lại sau {wait} giây."), 429
+
+    # Tạo job nền rồi chuyển sang trang kết quả (không khóa request này)
+    worker = _compare_job if len(topics) >= 2 else _analyze_job
+    job_id = job_manager.submit(worker, topic)
+    return redirect(url_for("result", job_id=job_id))
+
+
+@app.route("/result/<job_id>")
+def result(job_id):
+    job = job_manager.get(job_id)
+    if not job:
+        return _render(error="Không tìm thấy phiên phân tích (có thể đã hết hạn)."), 404
+
+    if job["status"] in ("queued", "running"):
+        return _render(loading=True, topic="")
+
+    if job["status"] == "error":
+        return _render(error=f"Lỗi khi xử lý: {job['error']}")
+
+    payload = job["result"] or {}
+    if payload.get("error"):
+        topic = payload.get("topic") or payload.get("topics_str")
+        return _render(topic=topic, error=payload["error"])
+
+    if payload.get("kind") == "compare":
+        return _render(topic=payload["topics_str"], compare_items=payload["items"],
+                       compare_topics=payload["topics_str"],
+                       compare_winner=payload["winner"], compare_url=payload["compare_url"])
+
+    return _render(topic=payload["topic"], result=payload["result"],
+                   source_count=payload["source_count"],
+                   pie_url=payload["pie_url"], trend_url=payload["trend_url"])
+
+
+@app.route("/api/status/<job_id>")
+def api_status(job_id):
+    """Endpoint JSON để client poll trạng thái job."""
+    job = job_manager.get(job_id)
+    if not job:
+        return jsonify({"status": "not_found"}), 404
+    return jsonify({"status": job["status"], "error": job["error"]})
 
 
 @app.route("/charts/<path:filename>")

@@ -56,7 +56,9 @@ reporter.py  charts.py  history.py   (output)   ← Trình bày & lưu trữ
 | `charts.py` | Vẽ biểu đồ tròn / đường / cột (matplotlib) | `matplotlib` |
 | `history.py` | Lưu & truy xuất lịch sử phân tích (JSON file) | — |
 | `bot.py` | Giao diện Telegram (async) | `python-telegram-bot`, `engine` |
-| `webapp.py` | Giao diện Web (Flask) | `flask`, `engine` |
+| `webapp.py` | Giao diện Web (Flask) | `flask`, `engine`, `jobs`, `ratelimit` |
+| `jobs.py` | Hàng đợi job chạy nền cho Web (ThreadPoolExecutor) | — |
+| `ratelimit.py` | Rate limiter theo IP (cửa sổ trượt) cho Web | — |
 | `main.py` | Giao diện CLI | `engine` |
 
 ## Quyết định thiết kế
@@ -66,6 +68,9 @@ Tránh lặp logic. Trước khi có engine, mỗi giao diện sẽ phải tự 
 
 ### Vì sao cache trong bộ nhớ (in-memory) thay vì database?
 Đơn giản và đủ dùng. Cache chỉ cần sống trong một phiên chạy để tránh gọi lại Gemini cho cùng chủ đề trong thời gian ngắn. Mất cache khi restart là chấp nhận được — không đáng để thêm phụ thuộc database.
+
+### Vì sao Web dùng job nền + rate limit?
+Một lần phân tích mất hàng chục giây (cào nhiều nguồn + gọi Gemini). Nếu xử lý ngay trong request, luồng HTTP bị khóa và dễ bị lạm dụng. Vì vậy `webapp.py` tạo job qua `jobs.JobManager` rồi trả `job_id`; client được chuyển sang `/result/<id>` và trang tự refresh cho tới khi job xong (có thêm endpoint JSON `/api/status/<id>` để poll). `ratelimit.RateLimiter` giới hạn số job mỗi IP để chặn spam. Cả hai đều **in-process** (đủ cho dev server 1 tiến trình); nếu chạy nhiều worker (gunicorn `-w >1`) thì cần chuyển sang hàng đợi ngoài như Redis/RQ/Celery.
 
 ### Vì sao nguồn dữ liệu phụ (YouTube/Reddit) là tùy chọn?
 Để hạ rào cản dùng thử. Người dùng chỉ cần `GEMINI_API_KEY` là chạy được ngay với Hacker News + Google News. Nếu thiếu credentials của nguồn phụ, các hàm tương ứng trả về list rỗng và bỏ qua êm thay vì làm vỡ pipeline.
@@ -85,8 +90,9 @@ Cả ba thư mục đều được `.gitignore` loại trừ (dữ liệu sinh r
 
 - **Scraper**: mỗi nguồn bọc trong try/except riêng — một nguồn lỗi không làm hỏng các nguồn còn lại.
 - **Analyzer**: retry 3 lần khi gặp lỗi 503/429 (server quá tải), chờ 5s giữa các lần.
-- **Engine**: lỗi khi lưu lịch sử được nuốt (không làm hỏng kết quả phân tích đã có).
-- **Charts/Reporter trong giao diện**: bọc try/except để lỗi vẽ biểu đồ không chặn việc trả báo cáo text.
+- **Engine**: lỗi khi lưu lịch sử được log lại (không làm hỏng kết quả phân tích đã có).
+- **Charts/Reporter trong giao diện**: bọc try/except (có log) để lỗi vẽ biểu đồ không chặn việc trả báo cáo text.
+- **Web jobs**: mỗi job bọc try/except trong `JobManager` — job lỗi chuyển trạng thái `error` chứ không làm sập worker.
 
 ## Điểm cần biết
 

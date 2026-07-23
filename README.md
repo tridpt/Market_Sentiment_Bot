@@ -188,9 +188,11 @@ Market_Sentiment_Bot/
 ├── charts.py         # Biểu đồ pie / trend / compare
 ├── history.py        # Lưu & truy xuất lịch sử
 ├── bot.py            # Telegram bot (async)
-├── webapp.py         # Web UI (Flask)
+├── webapp.py         # Web UI (Flask) — job nền + rate limit
+├── jobs.py           # Hàng đợi job chạy nền cho Web
+├── ratelimit.py      # Rate limiter theo IP cho Web
 ├── main.py           # CLI
-├── tests/            # 44 unit test (pytest)
+├── tests/            # 71 unit test (pytest)
 ├── docs/             # Tài liệu kỹ thuật
 ├── requirements.txt        # Phụ thuộc để chạy app
 ├── requirements-dev.txt    # Phụ thuộc dev/test (pytest, playwright)
@@ -218,7 +220,8 @@ Tài liệu kỹ thuật chi tiết nằm trong thư mục [`docs/`](docs/):
 ## ⚠️ Lưu ý bảo mật
 
 - **Không commit `.env`** — file này chứa token/API key thật và đã được `.gitignore` loại trừ.
-- Web UI mặc định chỉ chạy `127.0.0.1` (máy bạn) và **chưa có xác thực** — đừng expose ra internet khi chưa thêm lớp bảo vệ.
+- Web UI mặc định chỉ chạy `127.0.0.1` (máy bạn). Đã có **rate limit theo IP** và **job nền** để chống lạm dụng, nhưng **chưa có xác thực người dùng** — nếu expose ra internet, hãy thêm lớp auth (reverse proxy/basic auth) phía trước.
+- **Telegram bot**: nên đặt `ALLOWED_USER_ID` (cho phép nhiều id, cách nhau dấu phẩy) trước khi công khai; để trống nghĩa là ai cũng dùng được và tiêu quota API của bạn.
 
 ## 📝 Lịch sử phiên bản
 
