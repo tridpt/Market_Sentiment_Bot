@@ -213,13 +213,14 @@ Tài liệu kỹ thuật chi tiết nằm trong thư mục [`docs/`](docs/):
 | [API_REFERENCE.md](docs/API_REFERENCE.md) | Tham chiếu hàm theo từng module, tham số & giá trị trả về |
 | [USAGE.md](docs/USAGE.md) | Hướng dẫn dùng chi tiết cả 3 giao diện + xử lý sự cố |
 | [CONTRIBUTING.md](docs/CONTRIBUTING.md) | Hướng dẫn sửa code, thêm nguồn/biểu đồ, quy trình commit |
+| [DEPLOY.md](docs/DEPLOY.md) | Triển khai 24/7: Docker, Docker Compose, Railway, Render |
 
 ## 🗺️ Hướng phát triển
 
 - [x] Trích nguồn (đính link bài viết gốc trong báo cáo)
 - [x] Lọc theo khoảng thời gian (1 tuần / 1 tháng / 1 năm)
 - [x] Bot tự quét theo lịch và gửi báo cáo xu hướng định kỳ
-- [ ] Deploy 24/7 (Railway / Render) để bot luôn online
+- [x] Deploy 24/7 (Docker / Railway / Render) — xem [docs/DEPLOY.md](docs/DEPLOY.md)
 
 ## ⚠️ Lưu ý bảo mật
 

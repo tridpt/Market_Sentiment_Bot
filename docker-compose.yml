@@ -1,0 +1,35 @@
+# Chạy cả 3 tiến trình từ cùng một image: Web UI, Telegram bot, và scheduler.
+# Dùng chung file .env và volume để giữ lịch sử/biểu đồ.
+#
+#   docker compose up -d --build      # bật tất cả
+#   docker compose up -d web          # chỉ bật Web UI
+#   docker compose logs -f scheduler  # xem log scheduler
+
+services:
+  web:
+    build: .
+    env_file: .env
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data
+      - ./reports:/app/reports
+    restart: unless-stopped
+
+  bot:
+    build: .
+    env_file: .env
+    command: python bot.py
+    volumes:
+      - ./data:/app/data
+      - ./reports:/app/reports
+    restart: unless-stopped
+
+  scheduler:
+    build: .
+    env_file: .env
+    command: python scheduler.py
+    volumes:
+      - ./data:/app/data
+      - ./reports:/app/reports
+    restart: unless-stopped

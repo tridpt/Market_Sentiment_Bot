@@ -1,0 +1,32 @@
+# Bí mật — TUYỆT ĐỐI không đưa vào image
+.env
+token.json
+*.key
+
+# Git & CI
+.git
+.github
+.gitignore
+
+# Môi trường ảo / cache
+.venv
+venv
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+
+# Test & tài liệu (không cần trong runtime)
+tests
+docs
+*.md
+
+# Dữ liệu/artefact sinh ra lúc chạy (sẽ dùng volume)
+data
+reports
+assets
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
