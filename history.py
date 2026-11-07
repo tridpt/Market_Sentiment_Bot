@@ -1,10 +1,13 @@
 """Lưu trữ và truy xuất lịch sử các lần phân tích để theo dõi xu hướng theo thời gian."""
 import os
 import json
+import tempfile
+import threading
 from datetime import datetime
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 HISTORY_FILE = os.path.join(DATA_DIR, "history.json")
+_HISTORY_LOCK = threading.Lock()
 
 
 def _ensure_dir():
@@ -14,20 +17,31 @@ def _ensure_dir():
 def save_record(topic, result, source_count=0):
     """Lưu một bản ghi kết quả phân tích kèm timestamp."""
     _ensure_dir()
-    records = load_all()
-    record = {
-        "topic": topic,
-        "timestamp": datetime.now().isoformat(timespec="seconds"),
-        "tong_quan": result.get("tong_quan"),
-        "phan_tram_tich_cuc": result.get("phan_tram_tich_cuc", 0),
-        "phan_tram_tieu_cuc": result.get("phan_tram_tieu_cuc", 0),
-        "phan_tram_trung_lap": result.get("phan_tram_trung_lap", 0),
-        "source_count": source_count,
-        "full_result": result,
-    }
-    records.append(record)
-    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-        json.dump(records, f, ensure_ascii=False, indent=2)
+    with _HISTORY_LOCK:
+        records = load_all()
+        record = {
+            "topic": topic,
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "tong_quan": result.get("tong_quan"),
+            "phan_tram_tich_cuc": result.get("phan_tram_tich_cuc", 0),
+            "phan_tram_tieu_cuc": result.get("phan_tram_tieu_cuc", 0),
+            "phan_tram_trung_lap": result.get("phan_tram_trung_lap", 0),
+            "source_count": source_count,
+            "full_result": result,
+        }
+        records.append(record)
+        fd, tmp_path = tempfile.mkstemp(dir=DATA_DIR, prefix="history_", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(records, f, ensure_ascii=False, indent=2)
+            os.replace(tmp_path, HISTORY_FILE)
+        except Exception:
+            if os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+            raise
     return record
 
 

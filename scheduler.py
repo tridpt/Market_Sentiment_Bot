@@ -8,6 +8,7 @@ Cấu hình qua .env:
   SCHEDULED_CHAT_ID="123456789"                    # (tùy chọn) gửi tóm tắt qua Telegram
 """
 import os
+import html
 import time
 import requests
 from dotenv import load_dotenv
@@ -51,13 +52,16 @@ def _format_summary(results, time_range=None):
     """Định dạng tóm tắt một lượt quét thành HTML cho Telegram."""
     lines = ["📅 <b>Báo cáo quét định kỳ</b>"]
     if time_range:
-        lines.append(f"<i>Khoảng thời gian: {time_range}</i>")
+        lines.append(f"<i>Khoảng thời gian: {html.escape(str(time_range))}</i>")
     for r in results:
+        safe_topic = html.escape(str(r.get("topic", "")))
         if r["ok"]:
-            lines.append(f"• {r['topic']}: {r['tong_quan']} "
+            safe_tq = html.escape(str(r.get("tong_quan", "")))
+            lines.append(f"• {safe_topic}: {safe_tq} "
                          f"({r['phan_tram_tich_cuc']}% tích cực)")
         else:
-            lines.append(f"• {r['topic']}: ❌ {r['error']}")
+            safe_err = html.escape(str(r.get("error", "")))
+            lines.append(f"• {safe_topic}: ❌ {safe_err}")
     return "\n".join(lines)
 
 

@@ -87,20 +87,23 @@ def format_telegram(topic, result):
     tc = result.get("phan_tram_tich_cuc", 0)
     tieu = result.get("phan_tram_tieu_cuc", 0)
     tl = result.get("phan_tram_trung_lap", 0)
+    safe_topic = html.escape(str(topic).upper())
+    safe_tong_quan = html.escape(str(result.get("tong_quan", "Không rõ")))
+    safe_ket_luan = html.escape(str(result.get("ket_luan_ngan", "...")))
     out = []
-    out.append(f"📊 <b>BÁO CÁO CẢM XÚC: {topic.upper()}</b>")
-    out.append(f"\n<b>Thái độ tổng quan:</b> {result.get('tong_quan', 'Không rõ')}")
+    out.append(f"📊 <b>BÁO CÁO CẢM XÚC: {safe_topic}</b>")
+    out.append(f"\n<b>Thái độ tổng quan:</b> {safe_tong_quan}")
     out.append("\n<b>Tỷ lệ dư luận:</b>")
     out.append(f"✅ Tích cực: {tc}%")
     out.append(f"❌ Tiêu cực: {tieu}%")
     out.append(f"⚪ Trung lập: {tl}%")
     out.append("\n<b>✅ Top điểm được khen:</b>")
     for i, k in enumerate(result.get("top_3_khen", [])):
-        out.append(f"{i+1}. {k}")
+        out.append(f"{i+1}. {html.escape(str(k))}")
     out.append("\n<b>❌ Top điểm bị chê:</b>")
     for i, c in enumerate(result.get("top_3_che", [])):
-        out.append(f"{i+1}. {c}")
-    out.append(f"\n💡 <b>Kết luận:</b>\n{result.get('ket_luan_ngan', '...')}")
+        out.append(f"{i+1}. {html.escape(str(c))}")
+    out.append(f"\n💡 <b>Kết luận:</b>\n{safe_ket_luan}")
     sources = result.get("_sources") or []
     if sources:
         out.append("\n🔗 <b>Nguồn tham khảo:</b>")

@@ -8,6 +8,7 @@ Lệnh hỗ trợ:
 """
 import os
 import sys
+import html
 import asyncio
 
 # Ép stdout/stderr về UTF-8 để log emoji không crash trên Windows (cp1252)
@@ -88,7 +89,7 @@ async def history_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     lines = ["📚 <b>Các chủ đề đã phân tích:</b>\n"]
     for t, c in sorted(topics.items(), key=lambda x: -x[1]):
-        lines.append(f"• {t} ({c} lần)")
+        lines.append(f"• {html.escape(str(t))} ({c} lần)")
     await update.message.reply_text("\n".join(lines), parse_mode="HTML")
 
 
